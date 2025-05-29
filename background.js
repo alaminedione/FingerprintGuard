@@ -1,9 +1,15 @@
+import { getRandomElement, getRandomInRange, generateBrowserVersion } from './utils.js';
+
+import { getFakeNavigatorProperties, getFakeUserAgentData, getNewRules, getFakeUserAgent, getFakeScreenProperties } from './spoofing-data.js';
+import { applySpoofingNavigator, applyUserAgentData, applyUserAgent, spoofWebGL, applyGhostMode, applyScreenSpoofing } from './spoofing-apply.js';
+
 // Configuration par défaut
 const defaultSettings = {
   ghostMode: false,
   spoofNavigator: false,
   spoofUserAgent: false,
   spoofCanvas: false,
+  spoofScreen: false, // Nouvelle option pour le spoofing d'écran
   blockImages: false,
   blockJS: false,
   //
@@ -35,6 +41,10 @@ const defaultSettings = {
   hDeviceMemory: 0,
   referer: '',
   contentEncoding: 'random',
+  // Screen Spoofing defaults (ajoutés ici pour être complet, même si gérés par settings.js)
+  spoofDeviceType: 'random',
+  spoofDevicePixelRatio: 'random',
+  spoofScreenResolution: 'random',
   //
   useFixedProfile: false,
   activeProfileId: null,
@@ -50,7 +60,10 @@ let currentProfile = null;
 
 let settings = { ...defaultSettings };
 
-// Initialisation
+/**
+ * Initialise l'extension en chargeant les paramètres et les profils.
+ * @async
+ */
 async function initialize() {
   //charger les paramètres
   const stored = await chrome.storage.sync.get(Object.keys(defaultSettings));
@@ -99,13 +112,18 @@ async function initialize() {
 
 initialize();
 
+/**
+ * Génère un nouveau profil d'usurpation basé sur les paramètres actuels.
+ * @returns {object} Le nouveau profil généré.
+ */
 function generateNewProfile() {
   const profile = {
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
     fakeNavigator: getFakeNavigatorProperties(settings),
-    fakeUserAgentData: getFakeUserAgentData(settings),
+    fakeUserAgentData: getFakeUserAgentData(settings, settings.browser),
     fakeUserAgent: getFakeUserAgent(settings),
+    fakeScreen: getFakeScreenProperties(settings), // Ajout des propriétés d'écran au profil
     rules: getNewRules(settings, 1),
   };
 
@@ -113,21 +131,34 @@ function generateNewProfile() {
 }
 
 
-// Sauvegarde d'un profil
+/**
+ * Sauvegarde un profil dans la liste des profils et dans le stockage local.
+ * @async
+ * @param {object} profile - Le profil à sauvegarder.
+ */
 async function saveProfile(profile) {
   profiles.push(profile);
   await chrome.storage.local.set({ profiles });
 }
 
-// Fonction pour obtenir un profil par ID
+/**
+ * Récupère un profil par son ID.
+ * @param {string} profileId - L'ID du profil à récupérer.
+ * @returns {object | undefined} Le profil trouvé ou undefined.
+ */
 function getProfileById(profileId) {
   return profiles.find(profile => profile.id === profileId);
 }
 
-// Obtention des valeurs de configuration
+/**
+ * Obtient une valeur de configuration, en tenant compte du profil actif.
+ * @param {string} key - La clé de la configuration à obtenir.
+ * @returns {*} La valeur de la configuration.
+ */
 function getConfigValue(key) {
   if (settings.useFixedProfile && currentProfile) {
-    return currentProfile.properties[key] || settings[key];
+    // Assurez-vous que currentProfile.properties existe avant d'y accéder
+    return currentProfile.properties && currentProfile.properties[key] !== undefined ? currentProfile.properties[key] : settings[key];
   }
   return settings[key];
 }
@@ -260,6 +291,12 @@ chrome.webNavigation.onCommitted.addListener((details) => {
     injectScript(details.tabId, spoofWebGL); // Appel de la fonction spoofWebGL
   }
 
+  if (settings.spoofScreen) {
+    console.log('activation spoof screen sur la page: ', details.url);
+    const fakeScreenProps = getFakeScreenProperties(settings);
+    injectScript(details.tabId, applyScreenSpoofing, fakeScreenProps);
+  }
+
   if (settings.spoofNavigator) {
     console.log('activation spoof navigator sur  la page: ', details.url);
     spoofNavigator(details.tabId, settings);
@@ -296,7 +333,10 @@ chrome.webNavigation.onBeforeNavigate.addListener((details) => {
   console.log('block images: ', settings.blockImages);
 });
 
-// Gérer le rechargement automatique des pages
+/**
+ * Gère le rechargement automatique des onglets en fonction des paramètres.
+ * @async
+ */
 async function handleAutoReload() {
   const { autoReloadAll, autoReloadCurrent } = await chrome.storage.sync.get(['autoReloadAll', 'autoReloadCurrent']);
   if (autoReloadAll) {
@@ -316,7 +356,11 @@ async function handleAutoReload() {
   }
 }
 
-// Fonctions de spoofing
+/**
+ * Applique l'usurpation des propriétés du navigateur et des données User-Agent.
+ * @param {number} tabId - L'ID de l'onglet où appliquer l'usurpation.
+ * @param {object} config - La configuration actuelle de l'extension.
+ */
 function spoofNavigator(tabId, config) {
   const fakeNavigator = settings.useFixedProfile && currentProfile
     ? getFakeNavigatorPropertiesFromProfile(currentProfile)
@@ -324,7 +368,7 @@ function spoofNavigator(tabId, config) {
 
   const fakeUserAgentData = settings.useFixedProfile && currentProfile
     ? getFakeUserAgentDataFromProfile(currentProfile)
-    : getFakeUserAgentData(config);
+    : getFakeUserAgentData(config, config.browser);
 
   console.log('Usurpation de la navigation sur la page');
   injectScript(tabId, applySpoofingNavigator, fakeNavigator);
@@ -332,21 +376,47 @@ function spoofNavigator(tabId, config) {
 }
 
 
+/**
+ * Récupère les propriétés de navigateur falsifiées à partir d'un profil.
+ * @param {object} profile - Le profil contenant les propriétés.
+ * @returns {object} Les propriétés de navigateur falsifiées.
+ */
 function getFakeNavigatorPropertiesFromProfile(profile) {
   return profile.fakeNavigator;
 }
 
+/**
+ * Récupère les données User-Agent falsifiées à partir d'un profil.
+ * @param {object} profile - Le profil contenant les données User-Agent.
+ * @returns {object} Les données User-Agent falsifiées.
+ */
 function getFakeUserAgentDataFromProfile(profile) {
   return profile.fakeUserAgentData;
 }
 
+/**
+ * Récupère les règles de modification des en-têtes à partir d'un profil.
+ * @param {object} profile - Le profil contenant les règles.
+ * @returns {Array<object>} Les règles de modification des en-têtes.
+ */
 function getRulesFromProfiles(profile) {
   return profile.rules
 }
+
+/**
+ * Récupère la chaîne User-Agent falsifiée à partir d'un profil.
+ * @param {object} profile - Le profil contenant la chaîne User-Agent.
+ * @returns {string} La chaîne User-Agent falsifiée.
+ */
 function getFakeUserAgentFromProfile(profile) {
   return profile.fakeUserAgent
 }
 
+/**
+ * Applique l'usurpation de l'User-Agent via les règles declarativeNetRequest et l'injection de script.
+ * @param {number} tabId - L'ID de l'onglet où appliquer l'usurpation.
+ * @param {object} config - La configuration actuelle de l'extension.
+ */
 function spoofUserAgent(tabId, config) {
   const newRule = settings.activeProfileId && currentProfile ? getRulesFromProfiles(currentProfile) : getNewRules(config, 1); // 1 est un ID de règle unique
   console.log('usurpation de l\'user agent sur la page: ');
@@ -366,8 +436,15 @@ function spoofUserAgent(tabId, config) {
   }
 }
 
+/**
+ * Injecte un script dans un onglet spécifié.
+ * @param {number} tabId - L'ID de l'onglet où injecter le script.
+ * @param {string | function} fileOrFunc - Le chemin du fichier de script ou la fonction à injecter.
+ * @param {Array<*>} [args] - Les arguments à passer à la fonction injectée.
+ */
 function injectScript(tabId, fileOrFunc, args) {
-  console.log('injection de script de modification de user agent');
+  const scriptType = typeof fileOrFunc === 'string' ? `fichier : ${fileOrFunc}` : 'fonction';
+  console.log(`Injection de script (${scriptType}) dans l'onglet ${tabId}`);
   chrome.scripting.executeScript({
     world: 'MAIN',
     injectImmediately: true,
@@ -380,413 +457,12 @@ function injectScript(tabId, fileOrFunc, args) {
 
 
 
-//fonction qui applique ghostMode
-function applyGhostMode(tabId) {
-  chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    injectImmediately: true,
-    world: 'MAIN',
-    func: () => {
-      const makeUndefined = (obj, prop) => {
-        try {
-          Object.defineProperty(obj, prop, {
-            get: () => undefined,
-            configurable: false,
-            enumerable: true
-          });
-          console.log(`Modifié ${prop} en undefined`);
-        } catch (e) {
-          console.debug(`Impossible de modifier ${prop}:`, e);
-        }
-      };
-
-      // Liste des propriétés à rendre undefined
-      const propsToHide = [
-        'userAgent', 'platform', 'language', 'languages', 'hardwareConcurrency',
-        'deviceMemory', 'vendor', 'appVersion', 'userAgentData', 'oscpu',
-        'connection', 'getBattery', 'getGamepads', 'permissions', 'mediaDevices',
-        'serviceWorker', 'geolocation', 'clipboard', 'credentials', 'keyboard',
-        'locks', 'mediaCapabilities', 'mediaSession', 'plugins', 'presentation',
-        'scheduling', 'usb', 'xr', 'mimeTypes',
-        //web audio
-
-
-      ];
-
-      // Appliquer undefined à toutes les propriétés
-      propsToHide.forEach(prop => makeUndefined(navigator, prop));
-
-      // Rendre Canvas inutilisable
-      const origGetContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function () {
-        return null;
-      };
-    }
-  });
-
-  // Modifier les en-têtes HTTP
-  const rule = {
-    id: 999,
-    priority: 1,
-    action: {
-      type: "modifyHeaders",
-      requestHeaders: [
-        { header: "User-Agent", operation: "remove" },
-        { header: "Accept-Language", operation: "remove" },
-        { header: "DNT", operation: "remove" },
-        { header: "Sec-CH-UA", operation: "remove" },
-        { header: "Sec-CH-UA-Mobile", operation: "remove" },
-        { header: "Sec-CH-UA-Platform", operation: "remove" },
-        { header: "Sec-CH-UA-Platform-Version", operation: "remove" },
-        { header: "sec-ch-ua-full-version-list", operation: "remove" },
-        { header: "sec-ch-ua-mobile", operation: "remove" },
-        { header: "sec-ch-ua-platform", operation: "remove" },
-        { header: "sec-ch-ua-platform-version", operation: "remove" },
-        { header: "Device-Memory", operation: "remove" },
-        { header: "Referer", operation: "remove" },
-        { header: "Sec-Fetch-Site", operation: "remove" },
-        // { header: "Accept-Encoding", operation: "remove" },
-        { header: "Sec-Ch-Device-Memory", operation: "remove" },
-        { header: "Sec-ch-drp", operation: "remove" },
-        { header: "viewport-width", operation: "remove" },
-        { header: "viewport-height", operation: "remove" },
-      ]
-    },
-    condition: {
-      urlFilter: "*",
-      resourceTypes: ["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
-    }
-  };
-
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [999, 1],
-    addRules: [rule]
-  });
-}
+// La fonction applyGhostMode est importée depuis spoofing-apply.js
 
 
 
-// navigator spoofing
-function getFakeNavigatorProperties(config) {
-  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
-  const languages = {
-    'fr-FR': ['fr-FR', 'fr'],
-    'en-US': ['en-US', 'en'],
-    'en-GB': ['en-GB', 'en'],
-    'es-ES': ['es-ES', 'es'],
-    'de-DE': ['de-DE', 'de'],
-    'ja-JP': ['ja-JP', 'ja'],
-    'zh-CN': ['zh-CN', 'zh']
-  };
+// La fonction applyUserAgent est importée depuis spoofing-apply.js
 
-  const platform = config.platform === 'random' ? getRandomElement(platforms) : (config.platform || getRandomElement(platforms));
-  const language = config.language === 'random' ? getRandomElement(Object.keys(languages)) : (config.language || getRandomElement(Object.keys(languages)));
+// La fonction spoofWebGL est importée depuis spoofing-apply.js
 
-  // Mettre à jour les plages de versions pour Chrome
-  const minVersion = config.minVersion === 0 ? getRandomInRange(110, 120) : (config.minVersion || 110);
-  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 125) : (config.maxVersion || 125);
-  const browserVersion = generateBrowserVersion(minVersion, maxVersion);
-
-  const hardwareConcurrency = config.hardwareConcurrency === 0 ? getRandomElement([2, 4, 8, 16]) : parseInt(config.hardwareConcurrency);
-  const deviceMemory = config.deviceMemory === 0 ? getRandomElement([4, 8, 16, 32]) : parseInt(config.deviceMemory);
-
-  const fakeNavigator = {
-    platform: platform.split(';')[0].trim(), // Extraire la plateforme principale
-    userAgent: `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
-    language: language,
-    languages: languages[language],
-    hardwareConcurrency: hardwareConcurrency,
-    deviceMemory: deviceMemory,
-    vendor: 'Google Inc.',
-    maxTouchPoints: platform.includes('Windows') ? 0 : 5,
-    cookieEnabled: true,
-    doNotTrack: '1',
-    appName: 'Netscape',
-    appCodeName: 'Mozilla',
-    appVersion: `5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
-    onLine: true,
-  };
-  console.log('fakeNavigator cree avec les propriétés suivantes: ', fakeNavigator);
-  return fakeNavigator;
-}
-
-function applySpoofingNavigator(fakeNavigator) {
-  // Obtenir les clés de l'objet fakeNavigator
-  const propertiesToSpoof = Object.keys(fakeNavigator);
-
-  // Appliquer le spoofing pour chaque propriété
-  propertiesToSpoof.forEach((prop) => {
-    Object.defineProperty(navigator, prop, {
-      get: () => fakeNavigator[prop],
-      configurable: true,
-      enumerable: true,
-    });
-    console.log(`spoof de la propriété ${prop} avec la valeur ${fakeNavigator[prop]}`);
-  });
-
-  Object.defineProperty(navigator, 'plugins', {
-    get: () => undefined,
-    configurable: true,
-    enumerable: true
-  });
-
-  Object.defineProperty(navigator, 'mimeTypes', {
-    get: () => undefined,
-    configurable: true,
-    enumerable: true
-  });
-
-}
-
-//user agent data spoofing
-function getFakeUserAgentData(userAgentConfig) {
-  const brands = [
-    "Google Chrome",
-    "Chromium",
-    "Microsoft Edge",
-    "Firefox",
-    "Safari"
-  ];
-
-  const platforms = {
-    'Windows NT 10.0; Win64; x64': {
-      platform: 'Windows',
-      platformVersions: ['10.0.0', '10.0.19042', '10.0.22000', '10.0.22621']
-    },
-    'Windows NT 10.0; WOW64': {
-      platform: 'Windows',
-      platformVersions: ['10.0.0', '10.0.19042', '10.0.22000', '10.0.22621']
-    },
-    'Macintosh; Intel Mac OS X 10_15_7': {
-      platform: 'macOS',
-      platformVersions: ['10.15.7', '11.6.0', '12.0.1', '13.0.0']
-    },
-    'X11; Linux x86_64': {
-      platform: 'Linux',
-      platformVersions: ['5.15.0', '5.10.0', '6.0.0']
-    }
-  };
-
-  const selectedPlatformKey = userAgentConfig.uaPlatform === 'random'
-    ? getRandomElement(Object.keys(platforms))
-    : userAgentConfig.uaPlatform;
-
-  const platformInfo = platforms[selectedPlatformKey];
-
-  const platform = platformInfo ? platformInfo.platform : 'Unknown';
-  const platformVersion = userAgentConfig.uaPlatformVersion === 'random'
-    ? (platformInfo ? getRandomElement(platformInfo.platformVersions) : `${getRandomInRange(6, 12)}.${getRandomInRange(0, 10)}.${getRandomInRange(0, 100)}`)
-    : userAgentConfig.uaPlatformVersion;
-
-  const architecture = userAgentConfig.uaArchitecture === 'random'
-    ? getRandomElement(["x86", "x86_64", "arm64"])
-    : userAgentConfig.uaArchitecture;
-
-  const bitness = userAgentConfig.uaBitness === 'random'
-    ? getRandomElement(["32", "64"])
-    : userAgentConfig.uaBitness;
-
-  const wow64 = userAgentConfig.uaWow64 === 'random'
-    ? getRandomElement([true, false])
-    : userAgentConfig.uaWow64;
-
-  const model = userAgentConfig.uaModel === 'random'
-    ? getRandomElement(["", "Pixel 7", "iPhone", "Samsung Galaxy S23"])
-    : userAgentConfig.uaModel;
-
-  const uaFullVersion = userAgentConfig.uaFullVersion === 'random'
-    ? generateBrowserVersion(110, 125)
-    : userAgentConfig.uaFullVersion;
-
-  const brand = settings.browser === 'random' ? getRandomElement(brands) : settings.browser;
-
-  const fakeUserAgentData = {
-    brands: [
-      { brand: brand, version: uaFullVersion },
-      { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
-      { brand: "Chromium", version: generateBrowserVersion(110, 125) }
-    ],
-    mobile: model !== '', // Si un modèle est défini, on considère que c'est un mobile
-    platform: platform,
-    platformVersion: platformVersion,
-    architecture: architecture,
-    bitness: bitness,
-    wow64: wow64,
-    model: model,
-    uaFullVersion: uaFullVersion,
-    fullVersionList: [
-      { brand: brand, version: uaFullVersion },
-      { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
-      { brand: "Chromium", version: generateBrowserVersion(110, 125) }
-    ],
-  };
-  console.log('fakeUserAgentData cree avec les propriétés suivantes: ', fakeUserAgentData);
-  return fakeUserAgentData;
-}
-function applyUserAgentData(fakeUserAgentData) {
-  Object.defineProperty(navigator, 'userAgentData', {
-    get: () => fakeUserAgentData,
-    configurable: true,
-    enumerable: true
-  });
-
-  console.log('userAgentData modifié:', navigator.userAgentData);
-}
-// Génération des règles
-const browsersVersions = {
-  "Chrome": [129, 128, 127, 126],
-  "Firefox": [126, 125, 124],
-  "Safari": [17, 16, 15],
-  "Opera": [90, 89, 88],
-  "Edge": [109, 108, 107],
-};
-
-function getNewRules(config, ruleId) {
-  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
-  const selectedPlatform = config.uaPlatform === 'random' ? getRandomElement(platforms) : config.uaPlatform;
-
-  const minVersion = config.minVersion === 0 ? getRandomInRange(110, 120) : (config.minVersion || 110);
-  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 125) : (config.maxVersion || 125);
-  const browserVersion = generateBrowserVersion(minVersion, maxVersion);
-
-  const userAgent = `Mozilla/5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`;
-
-  const brands = [
-    { brand: "Google Chrome", version: browserVersion },
-    { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
-    { brand: "Chromium", version: generateBrowserVersion(110, 125) }
-  ];
-
-  const secChUaValue = config.secChUa === 'random'
-    ? brands.map(b => `"${b.brand}";v="${b.version.split('.')[0]}"`).join(', ')
-    : config.secChUa;
-
-  const secChUaFullVersionListValue = brands.map(b => `"${b.brand}";v="${b.version}"`).join(', ');
-
-  const headers = [
-    {
-      header: "User-Agent",
-      operation: "set",
-      value: userAgent
-    },
-    { header: "sec-ch-ua", operation: "set", value: secChUaValue },
-    { header: "sec-ch-ua-mobile", operation: "set", value: config.secChUaMobile === 'random' ? "?0" : config.secChUaMobile },
-    { header: "sec-ch-ua-platform", operation: "set", value: config.secChUaPlatform === 'random' ? `"${selectedPlatform.split(';')[0].trim()}"` : config.secChUaPlatform },
-    { header: "sec-ch-ua-full-version", operation: "set", value: config.secChUaFullVersion === 'random' ? browserVersion : config.secChUaFullVersion },
-    { header: "sec-ch-ua-platform-version", operation: "set", value: config.secChUaPlatformVersion === 'random' ? getRandomInRange(10, 15).toString() : config.secChUaPlatformVersion }, // Plus réaliste
-    { header: "Device-Memory", operation: "set", value: config.hDeviceMemory === 0 ? String(getRandomElement([8, 16, 32])) : String(config.hDeviceMemory) },
-    { header: "Referer", operation: "set", value: config.referer || "" },
-    { header: "sec-ch-ua-full-version-list", operation: "set", value: secChUaFullVersionListValue }
-  ];
-
-  return [{
-    id: ruleId,
-    priority: 10,
-    action: { type: "modifyHeaders", requestHeaders: headers },
-    condition: {
-      urlFilter: "*",
-      resourceTypes: ["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "xmlhttprequest"],
-    },
-  }];
-}
-//modify user agent
-function getFakeUserAgent(config) {
-  const minVersion = config.minVersion === 0 ? getRandomInRange(110, 120) : (config.minVersion || 110);
-  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 125) : (config.maxVersion || 125);
-  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
-  const uaPlatform = config.uaPlatform === 'random' ? getRandomElement(platforms) : config.uaPlatform;
-  const browserVersion = generateBrowserVersion(minVersion, maxVersion);
-
-  const fakeUserAgent_data_with_relatated_properties = {
-    userAgent: `Mozilla/5.0 (${uaPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
-    platform: uaPlatform.split(';')[0].trim(), // Extraire la plateforme principale
-    appVersion: `5.0 (${uaPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`
-  };
-  console.log('fakeUserAgent cree avec les propriétés suivantes: ', fakeUserAgent_data_with_relatated_properties);
-  return fakeUserAgent_data_with_relatated_properties;
-
-}
-function applyUserAgent(userAgentObj) {
-  // Appliquer le User-Agent
-  Object.defineProperty(navigator, 'userAgent', {
-    value: userAgentObj.userAgent,
-    configurable: true,
-    enumerable: true
-  });
-
-  // Appliquer la plateforme
-  Object.defineProperty(navigator, 'platform', {
-    value: userAgentObj.platform,
-    configurable: true,
-    enumerable: true
-  });
-
-  // Appliquer la version de l'application
-  Object.defineProperty(navigator, 'appVersion', {
-    value: userAgentObj.appVersion,
-    configurable: true,
-    enumerable: true
-  });
-}
-
-// WebGL Spoofing
-function spoofWebGL() {
-  const getParameter = WebGLRenderingContext.prototype.getParameter;
-  WebGLRenderingContext.prototype.getParameter = function (parameter) {
-    // UNMASKED_VENDOR_WEBGL
-    if (parameter === 37445) {
-      return 'Google Inc.';
-    }
-    // UNMASKED_RENDERER_WEBGL
-    if (parameter === 37446) {
-      return 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Google)), SwiftShader)';
-    }
-    return getParameter.call(this, parameter);
-  };
-
-  const getExtension = WebGLRenderingContext.prototype.getExtension;
-  WebGLRenderingContext.prototype.getExtension = function (name) {
-    if (name === 'WEBGL_debug_renderer_info') {
-      return {
-        UNMASKED_VENDOR_WEBGL: 37445,
-        UNMASKED_RENDERER_WEBGL: 37446,
-      };
-    }
-    return getExtension.call(this, name);
-  };
-}
-
-// Fonctions utilitaires pour obtenir des éléments aléatoires
-function getRandomElement(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function getRandomInRange(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function generateBrowserVersion(minVersion, maxVersion) {
-  const major = getRandomInRange(minVersion, maxVersion);
-  const minor = getRandomInRange(0, 99);
-  return `${major}.${minor}.0`;
-}
-
-// Fonction pour générer un User-Agent aléatoire
-function generateUserAgent(browser) {
-  const version = getRandomElement(browsersVersions[browser]);
-
-  switch (browser) {
-    case "Chrome":
-      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version}.0.${getRandomInRange(0, 999)} Safari/537.36`;
-    case "Firefox":
-      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:${version}.0) Gecko/20100101 Firefox/${version}.0`;
-    case "Safari":
-      return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${version}.0 Safari/605.1.15`;
-    case "Opera":
-      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version}.0.${getRandomInRange(0, 999)} Safari/537.36`;
-    case "Edge":
-      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version}.0.${getRandomInRange(0, 999)} Safari/537.36`;
-    default: return "";
-  }
-}
 
