@@ -1,12 +1,66 @@
 import { getRandomElement, getRandomInRange, generateBrowserVersion } from './utils.js';
 
-// Génération des règles
+// Génération des règles et données avancées
 const browsersVersions = {
-  "Chrome": [129, 128, 127, 126],
-  "Firefox": [126, 125, 124],
-  "Safari": [17, 16, 15],
-  "Opera": [90, 89, 88],
-  "Edge": [109, 108, 107],
+  "Chrome": [120, 119, 118, 117, 116, 115, 114, 113, 112, 111],
+  "Firefox": [121, 120, 119, 118, 117, 116, 115, 114, 113, 112],
+  "Safari": [17, 16, 15, 14, 13],
+  "Opera": [105, 104, 103, 102, 101, 100, 99, 98, 97, 96],
+  "Edge": [120, 119, 118, 117, 116, 115, 114, 113, 112, 111],
+};
+
+// Données avancées pour le spoofing
+const advancedSpoofingData = {
+  // Résolutions d'écran réalistes
+  screenResolutions: {
+    desktop: [
+      { width: 1920, height: 1080, ratio: 1 },
+      { width: 1366, height: 768, ratio: 1 },
+      { width: 1536, height: 864, ratio: 1.25 },
+      { width: 1440, height: 900, ratio: 1 },
+      { width: 2560, height: 1440, ratio: 1 },
+      { width: 3840, height: 2160, ratio: 1.5 },
+      { width: 1600, height: 900, ratio: 1 },
+      { width: 1280, height: 720, ratio: 1 },
+    ],
+    mobile: [
+      { width: 375, height: 667, ratio: 2 },
+      { width: 414, height: 896, ratio: 3 },
+      { width: 390, height: 844, ratio: 3 },
+      { width: 428, height: 926, ratio: 3 },
+      { width: 360, height: 640, ratio: 3 },
+      { width: 412, height: 915, ratio: 2.75 },
+    ],
+    tablet: [
+      { width: 768, height: 1024, ratio: 2 },
+      { width: 820, height: 1180, ratio: 2 },
+      { width: 810, height: 1080, ratio: 2.2 },
+      { width: 1024, height: 1366, ratio: 2 },
+    ]
+  },
+  
+  // Timezones réalistes
+  timezones: [
+    'UTC', 'America/New_York', 'America/Los_Angeles', 'Europe/London',
+    'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai',
+    'Australia/Sydney', 'America/Toronto', 'America/Chicago', 'Europe/Madrid'
+  ],
+  
+  // GPU et renderers réalistes
+  webglRenderers: [
+    'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    'ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    'ANGLE (AMD, AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    'Apple GPU', 'Mali-G78 MP14', 'Adreno (TM) 640'
+  ],
+  
+  // Audio contexts fingerprinting
+  audioFingerprints: [
+    35.73833084106445, 35.73833274841309, 35.7383346557617,
+    35.73833465576172, 35.73833465576174, 35.73833465576176
+  ]
 };
 
 /**
@@ -504,7 +558,209 @@ export function getFakeScreenProperties(config) {
     colorDepth: colorDepth,
     pixelDepth: pixelDepth,
     devicePixelRatio: devicePixelRatio, // Sera utilisé pour window.devicePixelRatio
-  };
-  console.log('fakeScreenProperties générées:', fakeScreen);
-  return fakeScreen;
-}
+    };
+    console.log('fakeScreenProperties générées:', fakeScreen);
+    return fakeScreen;
+  }
+
+  /**
+   * Génère des données WebRTC falsifiées pour éviter les fuites d'IP.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les données WebRTC falsifiées.
+   */
+  export function getFakeWebRTCData(config) {
+    const fakeLocalIPs = [
+      '192.168.1.100',
+      '192.168.0.150',
+      '10.0.0.25',
+      '172.16.0.50',
+      '192.168.2.75'
+    ];
+
+    const fakePublicIPs = [
+      '203.0.113.1',
+      '198.51.100.42',
+      '203.0.113.195',
+      '198.51.100.178'
+    ];
+
+    return {
+      localIP: getRandomElement(fakeLocalIPs),
+      publicIP: getRandomElement(fakePublicIPs),
+      blockedCandidates: true,
+      mediaDevicesBlocked: true
+    };
+  }
+
+  /**
+   * Génère des propriétés audio falsifiées pour éviter le fingerprinting audio.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les propriétés audio falsifiées.
+   */
+  export function getFakeAudioProperties(config) {
+    const baseFingerprint = getRandomElement(advancedSpoofingData.audioFingerprints);
+  
+    // Ajouter un léger bruit pour rendre unique mais cohérent
+    const noise = (Math.random() - 0.5) * 0.0001;
+    const fakeFingerprint = baseFingerprint + noise;
+
+    return {
+      audioFingerprint: fakeFingerprint,
+      sampleRate: getRandomElement([44100, 48000, 96000]),
+      maxChannelCount: getRandomElement([2, 6, 8]),
+      numberOfInputs: getRandomElement([0, 1, 2]),
+      numberOfOutputs: getRandomElement([0, 1, 2]),
+      channelCount: getRandomElement([1, 2]),
+      channelCountMode: getRandomElement(['max', 'clamped-max', 'explicit']),
+      channelInterpretation: getRandomElement(['speakers', 'discrete'])
+    };
+  }
+
+  /**
+   * Génère des propriétés de timezone falsifiées.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les propriétés de timezone falsifiées.
+   */
+  export function getFakeTimezoneProperties(config) {
+    const timezone = config.fakeTimezone || getRandomElement(advancedSpoofingData.timezones);
+  
+    // Map des offsets pour chaque timezone
+    const timezoneOffsets = {
+      'UTC': 0,
+      'America/New_York': 300,
+      'America/Los_Angeles': 480,
+      'America/Chicago': 360,
+      'America/Toronto': 300,
+      'Europe/London': 0,
+      'Europe/Paris': -60,
+      'Europe/Berlin': -60,
+      'Europe/Madrid': -60,
+      'Asia/Tokyo': -540,
+      'Asia/Shanghai': -480,
+      'Australia/Sydney': -660
+    };
+
+    const offset = timezoneOffsets[timezone] || 0;
+  
+    return {
+      timezone: timezone,
+      timezoneOffset: offset,
+      locale: config.language || 'en-US',
+      dateFormat: getRandomElement(['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'])
+    };
+  }
+
+  /**
+   * Génère des propriétés WebGL falsifiées avancées.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les propriétés WebGL falsifiées.
+   */
+  export function getFakeWebGLProperties(config) {
+    const renderer = getRandomElement(advancedSpoofingData.webglRenderers);
+    const vendor = renderer.includes('Intel') ? 'Intel Inc.' : 
+                   renderer.includes('NVIDIA') ? 'NVIDIA Corporation' : 
+                   renderer.includes('AMD') ? 'Advanced Micro Devices, Inc.' : 
+                   'Generic GPU Vendor';
+
+    return {
+      vendor: vendor,
+      renderer: renderer,
+      version: 'OpenGL ES 2.0',
+      shadingLanguageVersion: 'WebGL GLSL ES 1.0',
+      extensions: [
+        'ANGLE_instanced_arrays',
+        'EXT_blend_minmax',
+        'EXT_color_buffer_half_float',
+        'EXT_frag_depth',
+        'EXT_shader_texture_lod',
+        'EXT_texture_filter_anisotropic',
+        'OES_element_index_uint',
+        'OES_standard_derivatives',
+        'OES_texture_float',
+        'OES_texture_half_float',
+        'WEBGL_color_buffer_float',
+        'WEBGL_compressed_texture_s3tc',
+        'WEBGL_debug_renderer_info',
+        'WEBGL_depth_texture',
+        'WEBGL_lose_context'
+      ],
+      maxTextureSize: getRandomElement([4096, 8192, 16384]),
+      maxVertexAttribs: getRandomElement([16, 32]),
+      maxVaryingVectors: getRandomElement([8, 15, 30]),
+      maxVertexUniformVectors: getRandomElement([1024, 4096]),
+      maxFragmentUniformVectors: getRandomElement([1024, 4096])
+    };
+  }
+
+  /**
+   * Génère des propriétés de géolocalisation falsifiées.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les propriétés de géolocalisation falsifiées.
+   */
+  export function getFakeGeolocationProperties(config) {
+    // Coordonnées de grandes villes pour paraître réaliste
+    const fakeLocations = [
+      { latitude: 40.7128, longitude: -74.0060, city: 'New York' },
+      { latitude: 34.0522, longitude: -118.2437, city: 'Los Angeles' },
+      { latitude: 51.5074, longitude: -0.1278, city: 'London' },
+      { latitude: 48.8566, longitude: 2.3522, city: 'Paris' },
+      { latitude: 35.6762, longitude: 139.6503, city: 'Tokyo' },
+      { latitude: 52.5200, longitude: 13.4050, city: 'Berlin' },
+      { latitude: -33.8688, longitude: 151.2093, city: 'Sydney' }
+    ];
+
+    const location = getRandomElement(fakeLocations);
+  
+    // Ajouter un peu de bruit pour éviter la détection
+    const latNoise = (Math.random() - 0.5) * 0.01;
+    const lngNoise = (Math.random() - 0.5) * 0.01;
+
+    return {
+      latitude: location.latitude + latNoise,
+      longitude: location.longitude + lngNoise,
+      accuracy: getRandomInRange(10, 100),
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+      timestamp: Date.now(),
+      blocked: config.blockGeolocation || false
+    };
+  }
+
+  /**
+   * Génère des propriétés de batterie falsifiées.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les propriétés de batterie falsifiées.
+   */
+  export function getFakeBatteryProperties(config) {
+    const level = Math.random();
+    const charging = Math.random() > 0.5;
+  
+    return {
+      charging: charging,
+      chargingTime: charging ? getRandomInRange(1800, 7200) : Infinity,
+      dischargingTime: !charging ? getRandomInRange(3600, 28800) : Infinity,
+      level: Math.round(level * 100) / 100,
+      blocked: config.blockBattery || false
+    };
+  }
+
+  /**
+   * Génère des propriétés de connexion réseau falsifiées.
+   * @param {object} config - L'objet de configuration.
+   * @returns {object} Un objet contenant les propriétés de connexion falsifiées.
+   */
+  export function getFakeConnectionProperties(config) {
+    const connectionTypes = ['ethernet', 'wifi', 'cellular', 'unknown'];
+    const effectiveTypes = ['slow-2g', '2g', '3g', '4g'];
+  
+    return {
+      downlink: getRandomInRange(1, 10),
+      effectiveType: getRandomElement(effectiveTypes),
+      rtt: getRandomInRange(50, 300),
+      saveData: Math.random() > 0.8,
+      type: getRandomElement(connectionTypes),
+      blocked: config.blockConnection || false
+    };
+  }
