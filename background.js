@@ -257,6 +257,7 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   if (settings.spoofCanvas) {
     console.log('activation spoof canvas sur  la page: ', details.url);
     injectScript(details.tabId, './spoofer/spoof-canvas.js');
+    injectScript(details.tabId, spoofWebGL); // Appel de la fonction spoofWebGL
   }
 
   if (settings.spoofNavigator) {
@@ -467,30 +468,30 @@ function applyGhostMode(tabId) {
 
 // navigator spoofing
 function getFakeNavigatorProperties(config) {
-  const platforms = ['Windows NT 10.0', 'Windows NT 11.0', 'MacIntel', 'Linux x86_64'];
+  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
   const languages = {
     'fr-FR': ['fr-FR', 'fr'],
     'en-US': ['en-US', 'en'],
     'en-GB': ['en-GB', 'en'],
     'es-ES': ['es-ES', 'es'],
-    'de-DE': ['de-DE', 'de']
+    'de-DE': ['de-DE', 'de'],
+    'ja-JP': ['ja-JP', 'ja'],
+    'zh-CN': ['zh-CN', 'zh']
   };
-
-  // const browser = config.navSpoofBrowser === 'random' ? getRandomElement(Object.keys(browsersVersions)) : (config.navSpoofBrowser || getRandomElement(Object.keys(browsersVersions)));
 
   const platform = config.platform === 'random' ? getRandomElement(platforms) : (config.platform || getRandomElement(platforms));
   const language = config.language === 'random' ? getRandomElement(Object.keys(languages)) : (config.language || getRandomElement(Object.keys(languages)));
 
-  const minVersion = config.minVersion === 0 ? getRandomInRange(70, 100) : (config.minVersion || 70);
-  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 120) : (config.maxVersion || 120);
+  // Mettre à jour les plages de versions pour Chrome
+  const minVersion = config.minVersion === 0 ? getRandomInRange(110, 120) : (config.minVersion || 110);
+  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 125) : (config.maxVersion || 125);
   const browserVersion = generateBrowserVersion(minVersion, maxVersion);
 
   const hardwareConcurrency = config.hardwareConcurrency === 0 ? getRandomElement([2, 4, 8, 16]) : parseInt(config.hardwareConcurrency);
   const deviceMemory = config.deviceMemory === 0 ? getRandomElement([4, 8, 16, 32]) : parseInt(config.deviceMemory);
 
-  // Création de l'objet fakeNavigator
   const fakeNavigator = {
-    platform: platform,
+    platform: platform.split(';')[0].trim(), // Extraire la plateforme principale
     userAgent: `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
     language: language,
     languages: languages[language],
@@ -502,27 +503,8 @@ function getFakeNavigatorProperties(config) {
     doNotTrack: '1',
     appName: 'Netscape',
     appCodeName: 'Mozilla',
-    appVersion: ` ${platform} AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
+    appVersion: `5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
     onLine: true,
-    //NOTE: browser it's not in this list
-    // browser:browser,
-    //TEST:
-    //plugins et undefined sould work
-    // plugins: undefined,
-    // mimeTypes: undefined,
-    // mediaDevices: undefined,
-    // serviceWorker: undefined,
-    // geolocation: undefined,
-    // clipboard: undefined,
-    // credentials: undefined,
-    // keyboard: undefined,
-    // locks: undefined,
-    // mediaCapabilities: undefined,
-    // mediaSession: undefined,
-    // presentation: undefined,
-    // scheduling: undefined,
-    // usb: undefined,
-    // xr: undefined,
   };
   console.log('fakeNavigator cree avec les propriétés suivantes: ', fakeNavigator);
   return fakeNavigator;
@@ -560,22 +542,44 @@ function applySpoofingNavigator(fakeNavigator) {
 function getFakeUserAgentData(userAgentConfig) {
   const brands = [
     "Google Chrome",
-    "Edge",
+    "Chromium",
+    "Microsoft Edge",
     "Firefox",
     "Safari"
   ];
 
-  // Créer des valeurs basées sur l'objet userAgentConfig
-  const platform = userAgentConfig.uaPlatform === 'random'
-    ? getRandomElement(["Linux", "Windows NT 10.0", "MacIntel", "Windows 11"])
+  const platforms = {
+    'Windows NT 10.0; Win64; x64': {
+      platform: 'Windows',
+      platformVersions: ['10.0.0', '10.0.19042', '10.0.22000', '10.0.22621']
+    },
+    'Windows NT 10.0; WOW64': {
+      platform: 'Windows',
+      platformVersions: ['10.0.0', '10.0.19042', '10.0.22000', '10.0.22621']
+    },
+    'Macintosh; Intel Mac OS X 10_15_7': {
+      platform: 'macOS',
+      platformVersions: ['10.15.7', '11.6.0', '12.0.1', '13.0.0']
+    },
+    'X11; Linux x86_64': {
+      platform: 'Linux',
+      platformVersions: ['5.15.0', '5.10.0', '6.0.0']
+    }
+  };
+
+  const selectedPlatformKey = userAgentConfig.uaPlatform === 'random'
+    ? getRandomElement(Object.keys(platforms))
     : userAgentConfig.uaPlatform;
 
+  const platformInfo = platforms[selectedPlatformKey];
+
+  const platform = platformInfo ? platformInfo.platform : 'Unknown';
   const platformVersion = userAgentConfig.uaPlatformVersion === 'random'
-    ? `${getRandomInRange(6, 12)}.${getRandomInRange(0, 10)}.${getRandomInRange(0, 100)}`
+    ? (platformInfo ? getRandomElement(platformInfo.platformVersions) : `${getRandomInRange(6, 12)}.${getRandomInRange(0, 10)}.${getRandomInRange(0, 100)}`)
     : userAgentConfig.uaPlatformVersion;
 
   const architecture = userAgentConfig.uaArchitecture === 'random'
-    ? getRandomElement(["x86", "x86_64"])
+    ? getRandomElement(["x86", "x86_64", "arm64"])
     : userAgentConfig.uaArchitecture;
 
   const bitness = userAgentConfig.uaBitness === 'random'
@@ -587,32 +591,33 @@ function getFakeUserAgentData(userAgentConfig) {
     : userAgentConfig.uaWow64;
 
   const model = userAgentConfig.uaModel === 'random'
-    ? getRandomElement(["", "Model X", "Model Y"])
+    ? getRandomElement(["", "Pixel 7", "iPhone", "Samsung Galaxy S23"])
     : userAgentConfig.uaModel;
 
   const uaFullVersion = userAgentConfig.uaFullVersion === 'random'
-    ? generateBrowserVersion(120, 130)
+    ? generateBrowserVersion(110, 125)
     : userAgentConfig.uaFullVersion;
 
   const brand = settings.browser === 'random' ? getRandomElement(brands) : settings.browser;
 
-  // Créer un objet userAgentData fictif
   const fakeUserAgentData = {
     brands: [
-      { brand: brand, version: generateBrowserVersion(120, 130) },
-      { brand: getRandomElement(['Not=A?Brand']), version: generateBrowserVersion(8, 20) }
+      { brand: brand, version: uaFullVersion },
+      { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
+      { brand: "Chromium", version: generateBrowserVersion(110, 125) }
     ],
-    mobile: false,
+    mobile: model !== '', // Si un modèle est défini, on considère que c'est un mobile
     platform: platform,
     platformVersion: platformVersion,
     architecture: architecture,
     bitness: bitness,
     wow64: wow64,
-    // model: model,
+    model: model,
     uaFullVersion: uaFullVersion,
     fullVersionList: [
       { brand: brand, version: uaFullVersion },
-      { brand: brand, version: generateBrowserVersion(120, 130) }
+      { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
+      { brand: "Chromium", version: generateBrowserVersion(110, 125) }
     ],
   };
   console.log('fakeUserAgentData cree avec les propriétés suivantes: ', fakeUserAgentData);
@@ -637,25 +642,41 @@ const browsersVersions = {
 };
 
 function getNewRules(config, ruleId) {
-  // Génération des en-têtes
-  const platform = config.uaPlatform === 'random' ? getRandomElement(["Linux", "Windows NT 10.0", "MacIntel", "Windows 11"]) : config.uaPlatform;
+  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
+  const selectedPlatform = config.uaPlatform === 'random' ? getRandomElement(platforms) : config.uaPlatform;
 
-  const userAgent = `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${getRandomElement([129, 128, 127, 126])}.${getRandomInRange(0, 9)}.${getRandomInRange(0, 9)} Safari/537.36`;
+  const minVersion = config.minVersion === 0 ? getRandomInRange(110, 120) : (config.minVersion || 110);
+  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 125) : (config.maxVersion || 125);
+  const browserVersion = generateBrowserVersion(minVersion, maxVersion);
+
+  const userAgent = `Mozilla/5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`;
+
+  const brands = [
+    { brand: "Google Chrome", version: browserVersion },
+    { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
+    { brand: "Chromium", version: generateBrowserVersion(110, 125) }
+  ];
+
+  const secChUaValue = config.secChUa === 'random'
+    ? brands.map(b => `"${b.brand}";v="${b.version.split('.')[0]}"`).join(', ')
+    : config.secChUa;
+
+  const secChUaFullVersionListValue = brands.map(b => `"${b.brand}";v="${b.version}"`).join(', ');
+
   const headers = [
     {
       header: "User-Agent",
       operation: "set",
       value: userAgent
     },
-    { header: "sec-ch-ua", operation: "set", value: config.secChUa === 'random' ? getRandomElement(["", "Chromium", "Not A;Brand"]) : config.secChUa },
+    { header: "sec-ch-ua", operation: "set", value: secChUaValue },
     { header: "sec-ch-ua-mobile", operation: "set", value: config.secChUaMobile === 'random' ? "?0" : config.secChUaMobile },
-    { header: "sec-ch-ua-platform", operation: "set", value: config.secChUaPlatform === 'random' ? '""' : config.secChUaPlatform },
-    { header: "sec-ch-ua-full-version", operation: "set", value: config.secChUaFullVersion === 'random' ? "" : config.secChUaFullVersion },
-    { header: "sec-ch-ua-platform-version", operation: "set", value: config.secChUaPlatformVersion === 'random' ? "" : config.secChUaPlatformVersion },
+    { header: "sec-ch-ua-platform", operation: "set", value: config.secChUaPlatform === 'random' ? `"${selectedPlatform.split(';')[0].trim()}"` : config.secChUaPlatform },
+    { header: "sec-ch-ua-full-version", operation: "set", value: config.secChUaFullVersion === 'random' ? browserVersion : config.secChUaFullVersion },
+    { header: "sec-ch-ua-platform-version", operation: "set", value: config.secChUaPlatformVersion === 'random' ? getRandomInRange(10, 15).toString() : config.secChUaPlatformVersion }, // Plus réaliste
     { header: "Device-Memory", operation: "set", value: config.hDeviceMemory === 0 ? String(getRandomElement([8, 16, 32])) : String(config.hDeviceMemory) },
     { header: "Referer", operation: "set", value: config.referer || "" },
-    // { header: "Content-Encoding", operation: "set", value: config.contentEncoding === 'random' ? getRandomElement(["gzip", "deflate"]) : config.contentEncoding },
-    { header: "sec-ch-ua-full-version-list", operation: "set", value: "" }
+    { header: "sec-ch-ua-full-version-list", operation: "set", value: secChUaFullVersionListValue }
   ];
 
   return [{
@@ -670,15 +691,16 @@ function getNewRules(config, ruleId) {
 }
 //modify user agent
 function getFakeUserAgent(config) {
-  const minVersion = config.minVersion === 0 ? getRandomInRange(70, 100) : (config.minVersion || 70);
-  const maxVersion = config.maxVersion === 0 ? getRandomInRange(120, 130) : (config.maxVersion || 120);
-  const uaPlatform = config.uaPlatform === 'random' ? getRandomElement(["Linux", "Windows NT 10.0", "MacIntel", "Windows 11"]) : config.uaPlatform;
+  const minVersion = config.minVersion === 0 ? getRandomInRange(110, 120) : (config.minVersion || 110);
+  const maxVersion = config.maxVersion === 0 ? getRandomInRange(minVersion, 125) : (config.maxVersion || 125);
+  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
+  const uaPlatform = config.uaPlatform === 'random' ? getRandomElement(platforms) : config.uaPlatform;
   const browserVersion = generateBrowserVersion(minVersion, maxVersion);
 
   const fakeUserAgent_data_with_relatated_properties = {
     userAgent: `Mozilla/5.0 (${uaPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`,
-    platform: uaPlatform,
-    appVersion: `5.0 (${uaPlatform} AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`
+    platform: uaPlatform.split(';')[0].trim(), // Extraire la plateforme principale
+    appVersion: `5.0 (${uaPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`
   };
   console.log('fakeUserAgent cree avec les propriétés suivantes: ', fakeUserAgent_data_with_relatated_properties);
   return fakeUserAgent_data_with_relatated_properties;
@@ -707,6 +729,33 @@ function applyUserAgent(userAgentObj) {
   });
 }
 
+// WebGL Spoofing
+function spoofWebGL() {
+  const getParameter = WebGLRenderingContext.prototype.getParameter;
+  WebGLRenderingContext.prototype.getParameter = function (parameter) {
+    // UNMASKED_VENDOR_WEBGL
+    if (parameter === 37445) {
+      return 'Google Inc.';
+    }
+    // UNMASKED_RENDERER_WEBGL
+    if (parameter === 37446) {
+      return 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Google)), SwiftShader)';
+    }
+    return getParameter.call(this, parameter);
+  };
+
+  const getExtension = WebGLRenderingContext.prototype.getExtension;
+  WebGLRenderingContext.prototype.getExtension = function (name) {
+    if (name === 'WEBGL_debug_renderer_info') {
+      return {
+        UNMASKED_VENDOR_WEBGL: 37445,
+        UNMASKED_RENDERER_WEBGL: 37446,
+      };
+    }
+    return getExtension.call(this, name);
+  };
+}
+
 // Fonctions utilitaires pour obtenir des éléments aléatoires
 function getRandomElement(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -728,7 +777,7 @@ function generateUserAgent(browser) {
 
   switch (browser) {
     case "Chrome":
-      return `Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version}.0.${getRandomInRange(0, 999)} Safari/537.36`;
+      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version}.0.${getRandomInRange(0, 999)} Safari/537.36`;
     case "Firefox":
       return `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:${version}.0) Gecko/20100101 Firefox/${version}.0`;
     case "Safari":
