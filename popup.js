@@ -489,7 +489,7 @@ class AdvancedFeatures {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    new FingerprintGuardPopup();
+    window.fingerprintGuardPopup = new FingerprintGuardPopup();
     
     // Inject advanced protections on current tab
     AdvancedFeatures.injectAdvancedProtections();
