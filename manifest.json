@@ -1,15 +1,18 @@
 {
     "manifest_version": 3,
     "name": "FingerprintGuard",
-    "version": "2.0.0",
-    "description": "protege la vie privée des utilisateurs en usurpant les informations du navigateur. (gratuite et open source)",
+    "version": "2.1.0",
+    "description": "Protection avancée contre le fingerprinting avec spoofing intelligent, protection WebRTC, et mode fantôme. Sécurise votre vie privée en ligne. (gratuite et open source)",
     "permissions": [
         "storage",
         "scripting",
         "declarativeNetRequest",
         "contentSettings",
         "webNavigation",
-        "tabs"
+        "tabs",
+        "notifications",
+        "alarms",
+        "privacy"
     ],
     "host_permissions": [
         "<all_urls>"
@@ -33,5 +36,46 @@
         "16": "icons/icon16.png",
         "48": "icons/icon48.png",
         "128": "icons/icon128.png"
-    }
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "advanced-protection.js",
+                "spoofer/webrtc-protection.js",
+                "spoofer/spoof-canvas.js"
+            ],
+            "matches": ["<all_urls>"]
+        }
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'"
+    },
+    "minimum_chrome_version": "88",
+    "short_name": "FPGuard",
+    "homepage_url": "https://github.com/fingerprintguard/extension",
+    "commands": {
+        "toggle-ghost-mode": {
+            "suggested_key": {
+                "default": "Alt+G"
+            },
+            "description": "Basculer le mode fantôme"
+        },
+        "reload-all-tabs": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+R"
+            },
+            "description": "Recharger tous les onglets"
+        },
+        "open-popup": {
+            "suggested_key": {
+                "default": "Alt+F"
+            },
+            "description": "Ouvrir FingerprintGuard"
+        }
+    },
+    "optional_permissions": [
+        "management",
+        "system.cpu",
+        "system.memory"
+    ]
 }

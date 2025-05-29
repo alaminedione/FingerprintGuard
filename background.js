@@ -65,49 +65,113 @@ let settings = { ...defaultSettings };
  * @async
  */
 async function initialize() {
-  //charger les paramètres
-  const stored = await chrome.storage.sync.get(Object.keys(defaultSettings));
-  settings = { ...defaultSettings, ...stored };
+  try {
+    console.log('🚀 Initializing FingerprintGuard...');
+    
+    // Charger les paramètres avec validation
+    const stored = await chrome.storage.sync.get(Object.keys(defaultSettings));
+    settings = { ...defaultSettings, ...stored };
+    
+    // Valider les paramètres chargés
+    validateSettings(settings);
 
-  // Charger les profils existants
-  const storedProfiles = await chrome.storage.local.get('profiles');
-  profiles = storedProfiles.profiles || [];
+    // Charger les profils existants avec gestion d'erreur
+    const storedProfiles = await chrome.storage.local.get('profiles');
+    profiles = Array.isArray(storedProfiles.profiles) ? storedProfiles.profiles : [];
 
-  // Charger le profil actif
-  if (settings.activeProfileId) {
-    currentProfile = getProfileById(settings.activeProfileId);
-    if (!currentProfile) {
-      //le profil actif n'existe plus, peut etre qu'il a ete supprimé
-      currentProfile = null
-      settings.activeProfileId = null
-      chrome.storage.sync.set({ activeProfileId: null }, () => {
-        console.log('activeProfileId mis à null ', settings.activeProfileId);
-      });
-    }
-  } else {
-    currentProfile = null;
-  }
-
-  // Gérer le profil actif
-  if (settings.useFixedProfile) {
-    if (settings.generateNewProfileOnStart) {
-      if (!currentProfile) {
-        currentProfile = generateNewProfile();
-        settings.activeProfileId = currentProfile.id;
-        await saveProfile(currentProfile);
-      }
-    } else if (settings.activeProfileId) {
+    // Charger le profil actif avec validation
+    if (settings.activeProfileId) {
       currentProfile = getProfileById(settings.activeProfileId);
+      if (!currentProfile) {
+        console.warn('⚠️ Active profile not found, resetting to null');
+        currentProfile = null;
+        settings.activeProfileId = null;
+        await chrome.storage.sync.set({ activeProfileId: null });
+      }
+    } else {
+      currentProfile = null;
     }
-    if (!currentProfile) {
-      currentProfile = generateNewProfile();
-      settings.activeProfileId = currentProfile.id;
-      await saveProfile(currentProfile);
+
+    // Gérer le profil actif avec gestion d'erreur
+    if (settings.useFixedProfile) {
+      try {
+        if (settings.generateNewProfileOnStart) {
+          if (!currentProfile) {
+            currentProfile = generateNewProfile();
+            settings.activeProfileId = currentProfile.id;
+            await saveProfile(currentProfile);
+            console.log('✅ New profile generated on startup');
+          }
+        } else if (settings.activeProfileId) {
+          currentProfile = getProfileById(settings.activeProfileId);
+        }
+        
+        if (!currentProfile) {
+          currentProfile = generateNewProfile();
+          settings.activeProfileId = currentProfile.id;
+          await saveProfile(currentProfile);
+          console.log('✅ Fallback profile created');
+        }
+      } catch (profileError) {
+        console.error('❌ Error managing profiles:', profileError);
+        // Fallback: disable fixed profile mode
+        settings.useFixedProfile = false;
+        currentProfile = null;
+      }
+    }
+
+    console.log('✅ FingerprintGuard initialized successfully');
+    console.log('📊 Settings loaded:', settings);
+    console.log('👤 Current profile:', currentProfile?.id || 'None');
+    
+  } catch (error) {
+    console.error('❌ Critical error during initialization:', error);
+    // Fallback to default settings
+    settings = { ...defaultSettings };
+    currentProfile = null;
+    
+    // Notify user of initialization failure
+    try {
+      chrome.notifications?.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: 'FingerprintGuard Error',
+        message: 'Extension failed to initialize properly. Using default settings.'
+      });
+    } catch (notifError) {
+      console.error('Failed to show notification:', notifError);
     }
   }
+}
 
-  console.log('settings loaded:', settings);
-  console.log('currentProfile loaded:', currentProfile);
+/**
+ * Valide les paramètres chargés
+ * @param {object} settings - Les paramètres à valider
+ */
+function validateSettings(settings) {
+  if (!settings || typeof settings !== 'object') {
+    throw new Error('Invalid settings object');
+  }
+  
+  // Valider les types booléens
+  const booleanFields = ['ghostMode', 'spoofNavigator', 'spoofUserAgent', 'spoofCanvas', 'spoofScreen', 'blockImages', 'blockJS', 'autoReloadAll', 'autoReloadCurrent', 'useFixedProfile', 'generateNewProfileOnStart'];
+  
+  booleanFields.forEach(field => {
+    if (settings[field] !== undefined && typeof settings[field] !== 'boolean') {
+      console.warn(`⚠️ Invalid boolean field ${field}, resetting to default`);
+      settings[field] = defaultSettings[field];
+    }
+  });
+  
+  // Valider les nombres
+  const numberFields = ['hardwareConcurrency', 'deviceMemory', 'minVersion', 'maxVersion', 'hDeviceMemory'];
+  
+  numberFields.forEach(field => {
+    if (settings[field] !== undefined && (typeof settings[field] !== 'number' || isNaN(settings[field]))) {
+      console.warn(`⚠️ Invalid number field ${field}, resetting to default`);
+      settings[field] = defaultSettings[field];
+    }
+  });
 }
 
 initialize();
@@ -117,17 +181,83 @@ initialize();
  * @returns {object} Le nouveau profil généré.
  */
 function generateNewProfile() {
-  const profile = {
-    id: Date.now().toString(),
-    createdAt: new Date().toISOString(),
-    fakeNavigator: getFakeNavigatorProperties(settings),
-    fakeUserAgentData: getFakeUserAgentData(settings, settings.browser),
-    fakeUserAgent: getFakeUserAgent(settings),
-    fakeScreen: getFakeScreenProperties(settings), // Ajout des propriétés d'écran au profil
-    rules: getNewRules(settings, 1),
-  };
+  try {
+    const profileId = `fp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const profile = {
+      id: profileId,
+      createdAt: new Date().toISOString(),
+      version: '2.1.0', // Version du profil pour compatibilité future
+      fakeNavigator: getFakeNavigatorProperties(settings),
+      fakeUserAgentData: getFakeUserAgentData(settings, settings.browser),
+      fakeUserAgent: getFakeUserAgent(settings),
+      fakeScreen: getFakeScreenProperties(settings),
+      rules: getNewRules(settings, 1),
+      metadata: {
+        generatedWith: settings.browser || 'random',
+        platform: settings.platform || 'random',
+        language: settings.language || 'random'
+      }
+    };
 
-  return profile;
+    // Valider le profil généré
+    if (!validateProfile(profile)) {
+      throw new Error('Generated profile failed validation');
+    }
+
+    console.log('✅ New profile generated:', profileId);
+    return profile;
+    
+  } catch (error) {
+    console.error('❌ Error generating new profile:', error);
+    
+    // Profil de fallback minimal mais fonctionnel
+    return {
+      id: `fallback_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      version: '2.1.0',
+      fakeNavigator: {
+        platform: 'Win32',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        language: 'en-US',
+        hardwareConcurrency: 4,
+        deviceMemory: 8
+      },
+      fakeUserAgentData: {
+        brands: [{ brand: 'Chrome', version: '120' }],
+        mobile: false,
+        platform: 'Windows'
+      },
+      fakeUserAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      fakeScreen: {
+        width: 1920,
+        height: 1080,
+        availWidth: 1920,
+        availHeight: 1040,
+        colorDepth: 24,
+        pixelDepth: 24,
+        devicePixelRatio: 1
+      },
+      rules: [],
+      metadata: { fallback: true }
+    };
+  }
+}
+
+/**
+ * Valide un profil
+ * @param {object} profile - Le profil à valider
+ * @returns {boolean} True si le profil est valide
+ */
+function validateProfile(profile) {
+  if (!profile || typeof profile !== 'object') return false;
+  if (!profile.id || typeof profile.id !== 'string') return false;
+  if (!profile.createdAt) return false;
+  if (!profile.fakeNavigator || typeof profile.fakeNavigator !== 'object') return false;
+  if (!profile.fakeUserAgent || typeof profile.fakeUserAgent !== 'string') return false;
+  if (!profile.fakeScreen || typeof profile.fakeScreen !== 'object') return false;
+  
+  return true;
 }
 
 
@@ -191,78 +321,174 @@ chrome.storage.onChanged.addListener((changes) => {
 
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.type) {
-    case 'getStatus':
-      sendResponse(settings);
-      console.log('Status envoyé:', settings);
-      break;
-
-    case 'updateSetting': {
-      const { setting, value } = message;
-      settings[setting] = value;
-
-      chrome.storage.sync.set({ [setting]: value }, () => {
-        console.log(`Paramètre ${setting} mis à ${value}`);
-      });
-      sendResponse({ success: true });
-      break;
-    }
-
-    case 'updateSettings': {
-      const msg_settings = message.settings;
-      Object.keys(msg_settings).forEach(key => {
-        settings[key] = msg_settings[key];
-        chrome.storage.sync.set({ [key]: msg_settings[key] }, () => {
-          console.log(`Paramètre ${key} mis à ${msg_settings[key]}`);
-        });
-      });
-      sendResponse({ success: true });
-      break;
-    }
-
-    case 'generateNewProfile': {
-      const newProfile = generateNewProfile();
-      profiles.push(newProfile);
-      chrome.storage.local.set({ profiles }, () => {
-        console.log('Profil enregistré:', newProfile);
-      });
-      sendResponse(newProfile);
-      break;
-    }
-
-    case 'getProfiles':
-      sendResponse(profiles);
-      console.log('Profils envoyés:', profiles);
-      break;
-
-    case 'getActiveProfileId':
-      sendResponse(settings.activeProfileId);
-      console.log('ID du profil actif envoyé:', settings.activeProfileId);
-      break;
-
-    case 'deleteProfile': {
-      const profileIndex = profiles.findIndex(profile => profile.id === message.id);
-      if (profileIndex > -1) {
-        profiles.splice(profileIndex, 1);
-        chrome.storage.local.set({ profiles }, () => {
-          console.log('Profil supprimé:', message.id);
-        });
-        sendResponse({ success: true });
-      } else {
-        sendResponse({ success: false, error: 'Profil non trouvé' });
-      }
-      break;
-    }
-    case 'getSettings':
-      sendResponse(settings);
-      console.log('Settings envoyés:', settings);
-      break;
-
-    default:
-      console.warn('Type de message non reconnu:', message.type);
-      sendResponse({ success: false, error: 'Type de message non reconnu' });
+  // Validation du message
+  if (!message || typeof message !== 'object' || !message.type) {
+    console.error('❌ Invalid message received:', message);
+    sendResponse({ success: false, error: 'Invalid message format' });
+    return;
   }
-  // return true; // Indicate that the response will be sent asynchronously
+
+  const handleAsync = async () => {
+    try {
+      switch (message.type) {
+        case 'getStatus':
+          console.log('📊 Status requested');
+          sendResponse({ success: true, data: settings });
+          break;
+
+        case 'updateSetting': {
+          const { setting, value } = message;
+          
+          if (!setting || value === undefined) {
+            throw new Error('Missing setting or value');
+          }
+          
+          // Valider le paramètre avant de l'appliquer
+          if (!Object.prototype.hasOwnProperty.call(defaultSettings, setting)) {
+            throw new Error(`Unknown setting: ${setting}`);
+          }
+          
+          settings[setting] = value;
+          
+          await chrome.storage.sync.set({ [setting]: value });
+          console.log(`✅ Setting updated: ${setting} = ${value}`);
+          sendResponse({ success: true });
+          break;
+        }
+
+        case 'updateSettings': {
+          const msg_settings = message.settings;
+          
+          if (!msg_settings || typeof msg_settings !== 'object') {
+            throw new Error('Invalid settings object');
+          }
+          
+          // Valider tous les paramètres avant de les appliquer
+          const validSettings = {};
+          Object.keys(msg_settings).forEach(key => {
+            if (Object.prototype.hasOwnProperty.call(defaultSettings, key)) {
+              validSettings[key] = msg_settings[key];
+              settings[key] = msg_settings[key];
+            } else {
+              console.warn(`⚠️ Ignoring unknown setting: ${key}`);
+            }
+          });
+          
+          await chrome.storage.sync.set(validSettings);
+          console.log('✅ Multiple settings updated:', Object.keys(validSettings));
+          sendResponse({ success: true, updated: Object.keys(validSettings) });
+          break;
+        }
+
+        case 'generateNewProfile': {
+          const newProfile = generateNewProfile();
+          profiles.push(newProfile);
+          
+          // Limiter le nombre de profils stockés (max 50)
+          if (profiles.length > 50) {
+            profiles = profiles.slice(-50);
+            console.log('⚠️ Profile limit reached, removed oldest profiles');
+          }
+          
+          await chrome.storage.local.set({ profiles });
+          console.log('✅ New profile saved:', newProfile.id);
+          sendResponse({ success: true, data: newProfile });
+          break;
+        }
+
+        case 'getProfiles':
+          console.log('📁 Profiles requested');
+          sendResponse({ success: true, data: profiles });
+          break;
+
+        case 'getActiveProfileId':
+          console.log('👤 Active profile ID requested');
+          sendResponse({ success: true, data: settings.activeProfileId });
+          break;
+
+        case 'deleteProfile': {
+          const profileId = message.id;
+          
+          if (!profileId) {
+            throw new Error('Profile ID is required');
+          }
+          
+          const profileIndex = profiles.findIndex(profile => profile.id === profileId);
+          
+          if (profileIndex === -1) {
+            throw new Error('Profile not found');
+          }
+          
+          // Si on supprime le profil actif, le désactiver
+          if (settings.activeProfileId === profileId) {
+            settings.activeProfileId = null;
+            currentProfile = null;
+            await chrome.storage.sync.set({ activeProfileId: null });
+            console.log('⚠️ Active profile deleted, reset to null');
+          }
+          
+          profiles.splice(profileIndex, 1);
+          await chrome.storage.local.set({ profiles });
+          console.log('✅ Profile deleted:', profileId);
+          sendResponse({ success: true });
+          break;
+        }
+        
+        case 'getSettings':
+          console.log('⚙️ Settings requested');
+          sendResponse({ success: true, data: settings });
+          break;
+
+        case 'exportProfile': {
+          const profileId = message.id;
+          const profile = getProfileById(profileId);
+          
+          if (!profile) {
+            throw new Error('Profile not found');
+          }
+          
+          const exportData = {
+            ...profile,
+            exportedAt: new Date().toISOString(),
+            exportedFrom: 'FingerprintGuard v2.1.0'
+          };
+          
+          sendResponse({ success: true, data: exportData });
+          break;
+        }
+
+        case 'importProfile': {
+          const profileData = message.data;
+          
+          if (!validateProfile(profileData)) {
+            throw new Error('Invalid profile data');
+          }
+          
+          // Générer un nouvel ID pour éviter les conflits
+          profileData.id = `imported_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          profileData.importedAt = new Date().toISOString();
+          
+          profiles.push(profileData);
+          await chrome.storage.local.set({ profiles });
+          
+          console.log('✅ Profile imported:', profileData.id);
+          sendResponse({ success: true, data: profileData });
+          break;
+        }
+
+        default:
+          console.warn('⚠️ Unknown message type:', message.type);
+          sendResponse({ success: false, error: `Unknown message type: ${message.type}` });
+      }
+    } catch (error) {
+      console.error('❌ Error handling message:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+  };
+
+  // Exécuter de manière asynchrone pour les opérations de stockage
+  handleAsync();
+  return true; // Indique que la réponse sera envoyée de manière asynchrone
 });
 
 // Écoute les navigations et injecte les scripts
@@ -437,22 +663,98 @@ function spoofUserAgent(tabId, config) {
 }
 
 /**
- * Injecte un script dans un onglet spécifié.
+ * Injecte un script dans un onglet spécifié avec gestion d'erreur robuste.
  * @param {number} tabId - L'ID de l'onglet où injecter le script.
  * @param {string | function} fileOrFunc - Le chemin du fichier de script ou la fonction à injecter.
  * @param {Array<*>} [args] - Les arguments à passer à la fonction injectée.
+ * @returns {Promise<boolean>} True si l'injection a réussi
  */
-function injectScript(tabId, fileOrFunc, args) {
-  const scriptType = typeof fileOrFunc === 'string' ? `fichier : ${fileOrFunc}` : 'fonction';
-  console.log(`Injection de script (${scriptType}) dans l'onglet ${tabId}`);
-  chrome.scripting.executeScript({
-    world: 'MAIN',
-    injectImmediately: true,
-    target: { tabId },
-    files: typeof fileOrFunc === 'string' ? [fileOrFunc] : undefined,
-    func: typeof fileOrFunc === 'function' ? fileOrFunc : undefined,
-    args: [args]
-  });
+async function injectScript(tabId, fileOrFunc, args) {
+  try {
+    // Validation des paramètres
+    if (!tabId || typeof tabId !== 'number') {
+      throw new Error('Invalid tab ID');
+    }
+    
+    if (!fileOrFunc) {
+      throw new Error('No script file or function provided');
+    }
+    
+    // Vérifier que l'onglet existe et est accessible
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab) {
+      console.warn(`⚠️ Tab ${tabId} not found or inaccessible`);
+      return false;
+    }
+    
+    // Vérifier que l'URL est injectable
+    if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('moz-extension://'))) {
+      console.warn(`⚠️ Cannot inject into protected URL: ${tab.url}`);
+      return false;
+    }
+    
+    const scriptType = typeof fileOrFunc === 'string' ? `file: ${fileOrFunc}` : 'function';
+    console.log(`💉 Injecting script (${scriptType}) into tab ${tabId}`);
+    
+    const injectionOptions = {
+      world: 'MAIN',
+      injectImmediately: true,
+      target: { tabId }
+    };
+    
+    if (typeof fileOrFunc === 'string') {
+      injectionOptions.files = [fileOrFunc];
+    } else if (typeof fileOrFunc === 'function') {
+      injectionOptions.func = fileOrFunc;
+      if (args !== undefined) {
+        injectionOptions.args = Array.isArray(args) ? args : [args];
+      }
+    } else {
+      throw new Error('Script must be a file path string or function');
+    }
+    
+    await chrome.scripting.executeScript(injectionOptions);
+    console.log(`✅ Script injected successfully into tab ${tabId}`);
+    return true;
+    
+  } catch (error) {
+    console.error(`❌ Failed to inject script into tab ${tabId}:`, error);
+    
+    // Log detailed error information
+    if (error.message.includes('Cannot access')) {
+      console.warn('📄 Tab may be on a restricted page or extension page');
+    } else if (error.message.includes('No tab with id')) {
+      console.warn('🔍 Tab may have been closed');
+    } else if (error.message.includes('The extensions gallery cannot be scripted')) {
+      console.warn('🏪 Cannot inject into Chrome Web Store');
+    }
+    
+    return false;
+  }
+}
+
+/**
+ * Injecte plusieurs scripts de manière séquentielle
+ * @param {number} tabId - L'ID de l'onglet
+ * @param {Array} scripts - Tableau d'objets {script, args}
+ * @returns {Promise<boolean>} True si tous les scripts ont été injectés
+ */
+async function injectMultipleScripts(tabId, scripts) {
+  try {
+    let successCount = 0;
+    
+    for (const { script, args } of scripts) {
+      const success = await injectScript(tabId, script, args);
+      if (success) successCount++;
+    }
+    
+    console.log(`✅ Injected ${successCount}/${scripts.length} scripts into tab ${tabId}`);
+    return successCount === scripts.length;
+    
+  } catch (error) {
+    console.error(`❌ Error injecting multiple scripts:`, error);
+    return false;
+  }
 }
 
 
