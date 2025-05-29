@@ -786,6 +786,12 @@ class FingerprintGuardSettings {
         if (exportButton) {
             exportButton.addEventListener('click', () => this.exportSettings());
         }
+
+        // Profile management buttons
+        document.getElementById('newProfile')?.addEventListener('click', () => this.createNewProfile());
+        document.getElementById('duplicateProfile')?.addEventListener('click', () => this.duplicateProfile());
+        document.getElementById('deleteProfile')?.addEventListener('click', () => this.deleteSelectedProfile());
+        document.getElementById('profilesList')?.addEventListener('click', (e) => this.handleProfileActions(e));
     }
 
     applyTheme() {
@@ -884,6 +890,8 @@ class FingerprintGuardSettings {
         if (statLastUpdateEl) statLastUpdateEl.textContent = this.stats.lastUpdate ? new Date(this.stats.lastUpdate).toLocaleString() : 'Jamais';
 
         this.updateSaveStatus();
+        this.renderProfilesList();
+        this.updateActiveProfileDisplay();
     }
 
     startAutoSave() {
@@ -1110,6 +1118,231 @@ class FingerprintGuardSettings {
         }, 3000);
     }
 
+/**
+     * Rend la liste des profils dans l'interface utilisateur.
+     */
+    renderProfilesList() {
+        const profilesListEl = document.getElementById('profilesList');
+        if (!profilesListEl) return;
+
+        profilesListEl.innerHTML = ''; // Clear existing list
+
+        if (this.profiles.length === 0) {
+            profilesListEl.innerHTML = '<p class="no-profiles">Aucun profil enregistré. Créez-en un nouveau !</p>';
+            return;
+        }
+
+        this.profiles.forEach(profile => {
+            const profileItem = document.createElement('div');
+            profileItem.className = `profile-item ${this.settings.useFixedProfile && this.settings.activeProfileId === profile.id ? 'active' : ''}`;
+            profileItem.dataset.profileId = profile.id;
+            profileItem.innerHTML = `
+                <div class="profile-details-summary">
+                    <span class="profile-name">${profile.name || `Profil ${profile.id.substring(3, 9)}`}</span>
+                    <span class="profile-meta">${new Date(profile.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div class="profile-actions">
+                    <button class="btn btn-small btn-primary activate-profile" data-id="${profile.id}">Activer</button>
+                    <button class="btn btn-small btn-danger delete-profile" data-id="${profile.id}">Supprimer</button>
+                </div>
+            `;
+            profilesListEl.appendChild(profileItem);
+        });
+    }
+
+    /**
+     * Met à jour l'affichage du profil actif.
+     */
+    updateActiveProfileDisplay() {
+        const activeProfileInfoEl = document.getElementById('activeProfileInfo');
+        const activeProfileDetailsEl = document.getElementById('activeProfileDetails');
+        if (!activeProfileInfoEl || !activeProfileDetailsEl) return;
+
+        if (this.settings.useFixedProfile && this.currentProfile) {
+            activeProfileInfoEl.classList.add('active');
+            activeProfileDetailsEl.innerHTML = `
+                <p><strong>ID:</strong> ${this.currentProfile.id}</p>
+                <p><strong>Créé le:</strong> ${new Date(this.currentProfile.createdAt).toLocaleString()}</p>
+                <p><strong>Navigateur:</strong> ${this.currentProfile.fakeUserAgent?.userAgent?.split('Chrome/')[1]?.split(' ')[0] || 'N/A'}</p>
+                <p><strong>Plateforme:</strong> ${this.currentProfile.fakeNavigator?.platform || 'N/A'}</p>
+                <p><strong>Langue:</strong> ${this.currentProfile.fakeNavigator?.language || 'N/A'}</p>
+                <p><strong>Cœurs CPU:</strong> ${this.currentProfile.fakeNavigator?.hardwareConcurrency || 'N/A'}</p>
+                <p><strong>Mémoire:</strong> ${this.currentProfile.fakeNavigator?.deviceMemory || 'N/A'} GB</p>
+            `;
+        } else {
+            activeProfileInfoEl.classList.remove('active');
+            activeProfileDetailsEl.textContent = 'Aucun profil actif';
+        }
+    }
+
+    /**
+     * Gère les actions des boutons de profil (Activer, Supprimer).
+     * @param {Event} event - L'événement de clic.
+     */
+    async handleProfileActions(event) {
+        const target = event.target;
+        const profileId = target.dataset.id;
+
+        if (!profileId) return;
+
+        if (target.classList.contains('activate-profile')) {
+            await this.activateSelectedProfile(profileId);
+        } else if (target.classList.contains('delete-profile')) {
+            await this.deleteSelectedProfile(profileId);
+        }
+    }
+
+    /**
+     * Crée un nouveau profil en envoyant un message au service worker.
+     */
+    async createNewProfile() {
+        try {
+            this.showNotification('Génération d\'un nouveau profil...', 'info');
+            const response = await chrome.runtime.sendMessage({ type: 'generateNewProfile' });
+            if (response && response.success) {
+                this.profiles.push(response.data);
+                this.settings.profiles = this.profiles; // Update settings object for saving
+                await this.saveData(); // Save profiles to storage
+                this.showNotification('Nouveau profil créé et sauvegardé!', 'success');
+                this.renderProfilesList();
+                this.stats.totalProfiles = this.profiles.length;
+                this.updateUI(); // Refresh stats
+            } else {
+                throw new Error(response?.error || 'Échec de la génération du profil.');
+            }
+        } catch (error) {
+            console.error('Erreur lors de la création du profil:', error);
+            this.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Duplique le profil actuellement sélectionné.
+     */
+    async duplicateProfile() {
+        const selectedProfileItem = document.querySelector('.profile-item.active');
+        if (!selectedProfileItem) {
+            this.showNotification('Veuillez sélectionner un profil à dupliquer.', 'warning');
+            return;
+        }
+        const profileIdToDuplicate = selectedProfileItem.dataset.profileId;
+        const profileToDuplicate = this.profiles.find(p => p.id === profileIdToDuplicate);
+
+        if (!profileToDuplicate) {
+            this.showNotification('Profil à dupliquer introuvable.', 'error');
+            return;
+        }
+
+        try {
+            this.showNotification('Duplication du profil...', 'info');
+            // Create a deep copy to ensure no reference issues
+            const duplicatedProfile = JSON.parse(JSON.stringify(profileToDuplicate));
+            duplicatedProfile.id = `fp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_copy`;
+            duplicatedProfile.createdAt = new Date().toISOString();
+            duplicatedProfile.name = `${profileToDuplicate.name || `Profil ${profileIdToDuplicate.substring(3, 9)}`} (Copie)`;
+
+            this.profiles.push(duplicatedProfile);
+            this.settings.profiles = this.profiles; // Update settings object for saving
+            await this.saveData(); // Save profiles to storage
+            this.showNotification('Profil dupliqué avec succès!', 'success');
+            this.renderProfilesList();
+            this.stats.totalProfiles = this.profiles.length;
+            this.updateUI(); // Refresh stats
+        } catch (error) {
+            console.error('Erreur lors de la duplication du profil:', error);
+            this.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Supprime le profil sélectionné.
+     * @param {string} profileId - L'ID du profil à supprimer.
+     */
+    async deleteSelectedProfile(profileId) {
+        if (!profileId) {
+            const selectedProfileItem = document.querySelector('.profile-item.active');
+            if (!selectedProfileItem) {
+                this.showNotification('Veuillez sélectionner un profil à supprimer.', 'warning');
+                return;
+            }
+            profileId = selectedProfileItem.dataset.profileId;
+        }
+
+        if (this.settings.activeProfileId === profileId) {
+            this.showNotification('Impossible de supprimer le profil actif. Veuillez en activer un autre d\'abord.', 'warning');
+            return;
+        }
+
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer le profil ${profileId} ?`)) {
+            return;
+        }
+
+        try {
+            this.showNotification('Suppression du profil...', 'info');
+            const response = await chrome.runtime.sendMessage({ type: 'deleteProfile', id: profileId });
+            if (response && response.success) {
+                this.profiles = this.profiles.filter(p => p.id !== profileId);
+                this.settings.profiles = this.profiles; // Update settings object for saving
+                await this.saveData(); // Save profiles to storage
+                this.showNotification('Profil supprimé avec succès!', 'success');
+                this.renderProfilesList();
+                this.stats.totalProfiles = this.profiles.length;
+                this.updateUI(); // Refresh stats
+            } else {
+                throw new Error(response?.error || 'Échec de la suppression du profil.');
+            }
+        } catch (error) {
+            console.error('Erreur lors de la suppression du profil:', error);
+            this.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Active le profil sélectionné.
+     * @param {string} profileId - L'ID du profil à activer.
+     */
+    async activateSelectedProfile(profileId) {
+        if (!profileId) {
+            const selectedProfileItem = document.querySelector('.profile-item.active');
+            if (!selectedProfileItem) {
+                this.showNotification('Veuillez sélectionner un profil à activer.', 'warning');
+                return;
+            }
+            profileId = selectedProfileItem.dataset.profileId;
+        }
+
+        const profileToActivate = this.profiles.find(p => p.id === profileId);
+        if (!profileToActivate) {
+            this.showNotification('Profil à activer introuvable.', 'error');
+            return;
+        }
+
+        try {
+            this.showNotification('Activation du profil...', 'info');
+            // Update activeProfileId in settings and save
+            this.settings.activeProfileId = profileId;
+            this.currentProfile = profileToActivate;
+            await this.saveData(); // This will also update chrome.storage.local
+            
+            // Send message to background to update its active profile
+            const response = await chrome.runtime.sendMessage({
+                type: 'updateSetting',
+                setting: 'activeProfileId',
+                value: profileId
+            });
+
+            if (response && response.success) {
+                this.showNotification(`Profil "${profileToActivate.name || profileId.substring(3, 9)}" activé!`, 'success');
+                this.renderProfilesList(); // Re-render to update active class
+                this.updateActiveProfileDisplay(); // Update active profile details
+            } else {
+                throw new Error(response?.error || 'Échec de l\'activation du profil.');
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'activation du profil:', error);
+            this.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
