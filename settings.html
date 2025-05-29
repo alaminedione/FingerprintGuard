@@ -272,6 +272,8 @@
             <option value="Chrome">Chrome</option>
             <option value="Firefox">Firefox</option>
             <option value="Safari">Safari</option>
+            <option value="Edge">Edge</option>
+            <option value="Opera">Opera</option>
           </select>
         </div>
 
@@ -371,6 +373,52 @@
             <option value="gzip">gzip</option>
             <option value="deflate">deflate</option>
           </select>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Screen Spoofing Configuration</h2>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Enable Screen Spoofing</div>
+            <div class="setting-description">Activates spoofing of screen properties (resolution, pixel ratio, etc.).</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="spoofScreen" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Device Type</div>
+            <div class="setting-description">Simulate a desktop or mobile device for screen properties.</div>
+          </div>
+          <select id="spoofDeviceType" class="select-input">
+            <option value="random">Random</option>
+            <option value="desktop">Desktop</option>
+            <option value="mobile">Mobile</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Device Pixel Ratio</div>
+            <div class="setting-description">Simulated device pixel ratio. Common values: 1 (desktop), 2 or 3 (mobile).</div>
+          </div>
+          <select id="spoofDevicePixelRatio" class="select-input">
+            <option value="random">Random</option>
+            <option value="1">1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+            <option value="2.5">2.5</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+         <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-title">Screen Resolution</div>
+            <div class="setting-description">Enter "random" or a specific resolution like "1920x1080".</div>
+          </div>
+          <input type="text" id="spoofScreenResolution" class="text-input" placeholder="random or 1920x1080" value="random">
         </div>
       </section>
 

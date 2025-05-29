@@ -23,6 +23,12 @@ const defaultSettings = {
   secChUaPlatformVersion: 'random',
   hDeviceMemory: 'random',
   contentEncoding: 'random',
+  // Screen Spoofing defaults
+  spoofDeviceType: 'random', // 'random', 'desktop', 'mobile'
+  spoofDevicePixelRatio: 'random', // 'random', or specific float
+  spoofScreenResolution: 'random', // 'random', or 'widthxheight'
+  spoofScreen: false, // Default for the new master switch for screen spoofing
+  // Profile Management defaults
   useFixedProfile: false,
   generateNewProfileOnStart: false,
   activeProfileId: null,
@@ -44,6 +50,10 @@ const browserHeaders = [
   'secChUaPlatform', 'secChUaFullVersion',
   'secChUaPlatformVersion', 'hDeviceMemory',
   // 'contentEncoding'
+];
+
+const screenSpoofingFields = [
+  'spoofDeviceType', 'spoofDevicePixelRatio', 'spoofScreenResolution'
 ];
 
 let currentProfiles = []; // Stockage des profils sous forme de tableau
@@ -172,6 +182,13 @@ function getSettingsFromUI() {
     secChUaPlatformVersion: secChUaPlatformVersion.value === '' ? 'random' : secChUaPlatformVersion.value,
     hDeviceMemory: hDeviceMemory.value === '' ? 0 : parseInt(hDeviceMemory.value, 10), // Parse as int
     // contentEncoding: contentEncoding.value === '' ? 'random' : contentEncoding.value,
+
+    // Screen Spoofing
+    spoofScreen: document.getElementById('spoofScreen').checked,
+    spoofDeviceType: document.getElementById('spoofDeviceType').value,
+    spoofDevicePixelRatio: document.getElementById('spoofDevicePixelRatio').value,
+    spoofScreenResolution: document.getElementById('spoofScreenResolution').value.trim() === '' ? 'random' : document.getElementById('spoofScreenResolution').value.trim(),
+
     profiles: currentProfiles || []
   };
 
@@ -202,18 +219,30 @@ function updateInterface() {
   autoReloadAllCheckbox.checked = settings.autoReloadAll;
   autoReloadCurrentCheckbox.checked = settings.autoReloadCurrent;
 
-  const allFields = [...navigatorFields, ...uaFields, ...browserHeaders];
+  // Concaténer tous les groupes de champs
+  const allFields = [...navigatorFields, ...uaFields, ...browserHeaders, ...screenSpoofingFields];
   allFields.forEach(field => {
     const element = document.getElementById(field);
     const value = settings[field] !== undefined ? settings[field] : defaultSettings[field];
     // const value = settings[field];
     if (element) {
-      element.value = value;
-      console.log('Element updated in interface:', element);
+      if (element.type === 'checkbox') {
+        element.checked = value;
+      } else {
+        element.value = value;
+      }
+      console.log('Element updated in interface:', field, value);
     } else {
       console.error(`Element ${field} not found`);
     }
   });
+
+  // Ensure the spoofScreen checkbox is also updated if not covered by allFields
+  const spoofScreenCheckbox = document.getElementById('spoofScreen');
+  if (spoofScreenCheckbox) {
+    spoofScreenCheckbox.checked = settings.spoofScreen !== undefined ? settings.spoofScreen : defaultSettings.spoofScreen;
+  }
+
   // Update section profiles
   useFixedProfileCheckbox.checked = settings.useFixedProfile;
   generateNewProfileCheckbox.checked = settings.generateNewProfileOnStart;
