@@ -722,3 +722,409 @@ class FingerprintGuardSettings {
                 <div class="stat-card">
                     <div class="stat-icon">🛡️</div>
                     <div class="stat-value" id="statProtections">0</div>
+                    <div class="stat-label">Protections Actives</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">⏱️</div>
+                    <div class="stat-value" id="statLastUpdate">-</div>
+                    <div class="stat-label">Dernière MàJ</div>
+                </div>
+            </div>
+        `;
+        return section;
+    }
+
+    attachEventListeners() {
+        console.log('Attaching event listeners...');
+        const themeToggleButton = document.getElementById('themeToggle');
+        if (themeToggleButton) {
+            themeToggleButton.addEventListener('click', () => this.toggleTheme());
+        }
+
+        const saveButton = document.getElementById('saveSettings');
+        if (saveButton) {
+            saveButton.addEventListener('click', () => this.saveData());
+        }
+        
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+                const sectionId = event.currentTarget.dataset.section;
+                if (sectionId) {
+                    this.showSection(sectionId);
+                }
+            });
+        });
+
+        const inputs = document.querySelectorAll('.form-input, .form-select, .toggle-switch input[type="checkbox"]');
+        inputs.forEach(input => {
+            input.addEventListener('change', (event) => this.handleInputChange(event.target));
+            if (input.hidden && input.closest('.toggle-switch')) {
+                // For visually styled toggles where the checkbox is hidden
+                input.closest('.toggle-switch').addEventListener('click', () => {
+                    input.checked = !input.checked;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            }
+        });
+        
+        const resetSettingsButton = document.getElementById('resetSettings');
+        if (resetSettingsButton) {
+            resetSettingsButton.addEventListener('click', () => this.resetToDefaults());
+        }
+
+        const importButton = document.getElementById('importData');
+        const importFile = document.getElementById('importFile');
+        if (importButton && importFile) {
+            importButton.addEventListener('click', () => importFile.click());
+            importFile.addEventListener('change', (event) => this.importSettings(event));
+        }
+
+        const exportButton = document.getElementById('exportData');
+        if (exportButton) {
+            exportButton.addEventListener('click', () => this.exportSettings());
+        }
+    }
+
+    applyTheme() {
+        document.body.className = this.theme;
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) {
+            themeToggle.textContent = this.theme === 'dark' ? '☀️' : '🌙';
+            themeToggle.title = this.theme === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre';
+        }
+    }
+
+    async loadData() {
+        this.isLoading = true;
+        this.updateSaveStatus();
+        try {
+            const storedSettings = await chrome.storage.local.get(null); // Get all stored data
+            // Deep merge defaultSettings with storedSettings
+            this.settings = JSON.parse(JSON.stringify(this.defaultSettings)); // Start with defaults
+
+            for (const key in storedSettings) {
+                if (this.settings.hasOwnProperty(key)) {
+                    if (typeof this.settings[key] === 'object' && this.settings[key] !== null && !Array.isArray(this.settings[key])) {
+                        // Merge objects (like advancedProtection)
+                        this.settings[key] = { ...this.settings[key], ...storedSettings[key] };
+                    } else {
+                        this.settings[key] = storedSettings[key];
+                    }
+                } else {
+                     // If key from storage is not in defaults, add it (might be from older version or new feature)
+                    this.settings[key] = storedSettings[key];
+                }
+            }
+            
+            this.profiles = this.settings.profiles || [];
+            this.currentProfile = this.settings.activeProfileId ? this.profiles.find(p => p.id === this.settings.activeProfileId) : null;
+            this.theme = localStorage.getItem('fpg-theme') || 'light';
+
+            this.stats.totalProfiles = this.profiles.length;
+            this.stats.activeProtections = this.countActiveProtections();
+            this.stats.lastUpdate = this.settings.lastUpdate || null;
+
+        } catch (e) {
+            console.error("Error loading settings:", e);
+            this.settings = JSON.parse(JSON.stringify(this.defaultSettings)); // Fallback to deep copy of defaults
+        }
+        this.isLoading = false;
+        this.isDirty = false;
+        this.applyTheme();
+        this.updateUI();
+        this.updateSaveStatus();
+    }
+
+    updateUI() {
+        if (this.isLoading) return;
+
+        for (const key in this.settings) {
+            if (key === 'profiles' || key === 'activeProfileId' || key === 'lastUpdate') continue;
+
+            if (key === 'advancedProtection' && typeof this.settings[key] === 'object' && this.settings[key] !== null) {
+                for (const subKey in this.settings[key]) {
+                    const elementId = `advanced${subKey.charAt(0).toUpperCase() + subKey.slice(1)}`;
+                    const element = document.getElementById(elementId);
+                    if (element && element.type === 'checkbox') {
+                        element.checked = this.settings[key][subKey];
+                        const toggleSwitch = element.closest('.toggle-switch');
+                        if (toggleSwitch) {
+                            if (element.checked) toggleSwitch.classList.add('active');
+                            else toggleSwitch.classList.remove('active');
+                        }
+                    }
+                }
+            } else {
+                const element = document.getElementById(key);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = this.settings[key];
+                        const toggleSwitch = element.closest('.toggle-switch');
+                        if (toggleSwitch) {
+                            if (element.checked) toggleSwitch.classList.add('active');
+                            else toggleSwitch.classList.remove('active');
+                        }
+                    } else if (element.tagName === 'SELECT' || element.type === 'text' || element.type === 'number') {
+                        element.value = this.settings[key];
+                    }
+                }
+            }
+        }
+        
+        const statProfilesEl = document.getElementById('statProfiles');
+        if (statProfilesEl) statProfilesEl.textContent = this.stats.totalProfiles;
+        
+        const statProtectionsEl = document.getElementById('statProtections');
+        if (statProtectionsEl) statProtectionsEl.textContent = this.countActiveProtections();
+        
+        const statLastUpdateEl = document.getElementById('statLastUpdate');
+        if (statLastUpdateEl) statLastUpdateEl.textContent = this.stats.lastUpdate ? new Date(this.stats.lastUpdate).toLocaleString() : 'Jamais';
+
+        this.updateSaveStatus();
+    }
+
+    startAutoSave() {
+        if (this.autoSave) {
+            console.log("Auto-save enabled. Changes will be saved automatically via handleInputChange.");
+        }
+    }
+
+    showSection(sectionId) {
+        const navList = document.getElementById('navList');
+        if (!navList || !document.getElementById(`section-${sectionId}`)) {
+             console.warn(`Section or navList not found for ${sectionId}`);
+             return;
+        }
+
+        document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
+        document.getElementById(`section-${sectionId}`).style.display = 'block';
+
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        const activeLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+    }
+
+    toggleTheme() {
+        this.theme = this.theme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('fpg-theme', this.theme);
+        this.applyTheme();
+    }
+    
+    handleInputChange(element) {
+        if (!element || !element.id) return;
+        
+        let key = element.id;
+        let value;
+
+        if (element.type === 'checkbox') {
+            value = element.checked;
+        } else if (element.type === 'number') {
+            value = parseFloat(element.value);
+            if (isNaN(value)) { // Handle case where input might be empty or non-numeric
+                 value = element.min ? parseFloat(element.min) : 0; // Fallback to min or 0
+            }
+        } else {
+            value = element.value;
+        }
+        
+        const isAdvancedProtectionKey = key.startsWith('advanced');
+        if (isAdvancedProtectionKey) {
+            const subKey = key.replace('advanced', '').charAt(0).toLowerCase() + key.replace('advanced', '').slice(1);
+            if (this.settings.advancedProtection && this.settings.advancedProtection.hasOwnProperty(subKey)) {
+                this.settings.advancedProtection[subKey] = value;
+            }
+        } else if (this.settings.hasOwnProperty(key)) {
+             this.settings[key] = value;
+        } else {
+            console.warn(`Unknown setting key: ${key}`);
+            return; // Do not proceed if key is not recognized
+        }
+
+        this.isDirty = true;
+        if (this.autoSave) {
+            this.saveData();
+        } else {
+            this.updateSaveStatus();
+        }
+        
+        if (element.type === 'checkbox' && element.closest('.toggle-switch')) {
+            const toggleSwitch = element.closest('.toggle-switch');
+            if (element.checked) {
+                toggleSwitch.classList.add('active');
+            } else {
+                toggleSwitch.classList.remove('active');
+            }
+        }
+    }
+
+    async saveData() {
+        this.settings.lastUpdate = new Date().toISOString();
+        this.stats.lastUpdate = this.settings.lastUpdate;
+        this.stats.activeProtections = this.countActiveProtections(); // Recalculate active protections
+
+        try {
+            await chrome.storage.local.set(this.settings);
+            this.isDirty = false;
+            this.showNotification('Paramètres sauvegardés avec succès!', 'success');
+        } catch (e) {
+            console.error("Error saving settings:", e);
+            this.showNotification("Erreur lors de la sauvegarde des paramètres.", 'error');
+        }
+        this.updateSaveStatus();
+        this.updateUI(); // Refresh UI, e.g., "Last Update" stat and active protections
+    }
+    
+    resetToDefaults() {
+        if (confirm("Êtes-vous sûr de vouloir réinitialiser tous les paramètres aux valeurs par défaut? Cette action est irréversible.")) {
+            this.settings = JSON.parse(JSON.stringify(this.defaultSettings));
+            this.profiles = []; // Also reset profiles array in memory
+            this.settings.profiles = []; // And in settings to be saved
+            this.settings.activeProfileId = null;
+            this.currentProfile = null;
+            // Reset theme to default if stored separately
+            localStorage.removeItem('fpg-theme');
+            this.theme = 'light'; // Default theme
+
+            this.saveData().then(() => {
+                 this.showNotification('Paramètres réinitialisés aux valeurs par défaut.', 'info');
+                 this.loadData(); // Reload data and refresh UI completely
+            });
+        }
+    }
+
+    exportSettings() {
+        try {
+            const settingsString = JSON.stringify(this.settings, null, 2);
+            const blob = new Blob([settingsString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `fingerprintguard_settings_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            this.showNotification('Paramètres exportés avec succès.', 'info');
+        } catch (e) {
+            console.error("Error exporting settings:", e);
+            this.showNotification("Erreur lors de l'exportation des paramètres.", 'error');
+        }
+    }
+
+    async importSettings(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const importedSettings = JSON.parse(e.target.result);
+                    // Add more robust validation/migration logic if needed
+                    this.settings = { ...JSON.parse(JSON.stringify(this.defaultSettings)), ...importedSettings };
+                    
+                    if (importedSettings.advancedProtection) {
+                         this.settings.advancedProtection = { ...this.defaultSettings.advancedProtection, ...importedSettings.advancedProtection};
+                    } else {
+                         this.settings.advancedProtection = { ...this.defaultSettings.advancedProtection };
+                    }
+                    this.profiles = this.settings.profiles || [];
+                    this.settings.activeProfileId = importedSettings.activeProfileId || null;
+                    
+                    await this.saveData();
+                    this.showNotification('Paramètres importés avec succès!', 'success');
+                    await this.loadData();
+                } catch (err) {
+                    console.error("Error importing settings:", err);
+                    this.showNotification("Erreur d'importation: Fichier invalide ou corrompu.", 'error');
+                }
+            };
+            reader.onerror = () => {
+                this.showNotification("Erreur de lecture du fichier.", 'error');
+            };
+            reader.readAsText(file);
+            event.target.value = null;
+        }
+    }
+    
+    countActiveProtections() {
+        let count = 0;
+        if (this.settings.spoofScreen) count++;
+        // Check navigator spoofing (if any specific property implies "active")
+        // Example: if platform is not 'random' or default
+        if (this.settings.platform !== 'random' && this.settings.platform !== this.defaultSettings.platform) count++;
+        
+        if (this.settings.advancedProtection) {
+            for (const key in this.settings.advancedProtection) {
+                if (this.settings.advancedProtection[key] === true) {
+                    count++;
+                }
+            }
+        }
+        // Add more specific checks based on your extension's logic
+        // For example, if user agent spoofing is active, etc.
+        return count;
+    }
+
+    updateSaveStatus() {
+        const saveStatusEl = document.getElementById('saveStatus');
+        const saveStatusTextEl = document.getElementById('saveStatusText');
+        if (!saveStatusEl || !saveStatusTextEl) return;
+
+        if (this.isLoading) {
+            saveStatusEl.className = 'status-badge loading';
+            saveStatusTextEl.textContent = 'Chargement...';
+        } else if (this.isDirty) {
+            saveStatusEl.className = 'status-badge dirty';
+            saveStatusTextEl.textContent = 'Non Sauvé';
+        } else {
+            saveStatusEl.className = 'status-badge saved';
+            saveStatusTextEl.textContent = 'Sauvegardé';
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        const notificationEl = document.getElementById('notification');
+        const notificationTextEl = document.getElementById('notificationText');
+        if (!notificationEl || !notificationTextEl) {
+            console.warn("Notification elements not found.");
+            return;
+        }
+
+        notificationTextEl.textContent = message;
+        // Reset classes, then add new ones
+        notificationEl.className = 'notification';
+        // Force reflow to restart animation if message is the same
+        void notificationEl.offsetWidth;
+        notificationEl.classList.add('show', type);
+
+        // Clear previous timeout if any
+        if (this.notificationTimeout) {
+            clearTimeout(this.notificationTimeout);
+        }
+        this.notificationTimeout = setTimeout(() => {
+            notificationEl.classList.remove('show');
+        }, 3000);
+    }
+
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        window.fingerprintGuardSettings = new FingerprintGuardSettings();
+    } else {
+        console.error("Chrome storage API not available. FingerprintGuard settings page cannot initialize.");
+        // Optionally display an error message to the user in the UI
+        const body = document.querySelector('body');
+        if (body) {
+            body.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">
+                                <h1>Erreur Critique</h1>
+                                <p>L'API de stockage de l'extension n'est pas disponible. Impossible d'initialiser la page des paramètres.</p>
+                                <p>Assurez-vous que l'extension est correctement installée et activée.</p>
+                              </div>`;
+        }
+    }
+});
