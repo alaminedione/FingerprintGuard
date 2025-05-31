@@ -54,7 +54,7 @@ export default {
   entry: {
     popup: './popup.js',
     settings: './settings.js',
-    background: './background.js',
+    background: './src/background.js',
     spoofCanvas: './spoofer/spoof-canvas.js',
   },
   output: {

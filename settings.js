@@ -812,7 +812,7 @@ class FingerprintGuardSettings {
             this.settings = JSON.parse(JSON.stringify(this.defaultSettings)); // Start with defaults
 
             for (const key in storedSettings) {
-                if (this.settings.hasOwnProperty(key)) {
+                if (this.settings?.hasOwnProperty(key)) {
                     if (typeof this.settings[key] === 'object' && this.settings[key] !== null && !Array.isArray(this.settings[key])) {
                         // Merge objects (like advancedProtection)
                         this.settings[key] = { ...this.settings[key], ...storedSettings[key] };
@@ -825,13 +825,13 @@ class FingerprintGuardSettings {
                 }
             }
             
-            this.profiles = this.settings.profiles || [];
-            this.currentProfile = this.settings.activeProfileId ? this.profiles.find(p => p.id === this.settings.activeProfileId) : null;
+            this.profiles = this.settings?.profiles || [];
+            this.currentProfile = this.settings?.activeProfileId ? this.profiles.find(p => p.id === this.settings?.activeProfileId) : null;
             this.theme = localStorage.getItem('fpg-theme') || 'light';
 
             this.stats.totalProfiles = this.profiles.length;
             this.stats.activeProtections = this.countActiveProtections();
-            this.stats.lastUpdate = this.settings.lastUpdate || null;
+            this.stats.lastUpdate = this.settings?.lastUpdate || null;
 
         } catch (e) {
             console.error("Error loading settings:", e);
@@ -943,10 +943,12 @@ class FingerprintGuardSettings {
         const isAdvancedProtectionKey = key.startsWith('advanced');
         if (isAdvancedProtectionKey) {
             const subKey = key.replace('advanced', '').charAt(0).toLowerCase() + key.replace('advanced', '').slice(1);
-            if (this.settings.advancedProtection && this.settings.advancedProtection.hasOwnProperty(subKey)) {
-                this.settings.advancedProtection[subKey] = value;
+            if (this.settings?.advancedProtection && this.settings?.advancedProtection.hasOwnProperty(subKey)) {
+                if (this.settings?.advancedProtection) {
+                    this.settings.advancedProtection[subKey] = value;
+                }
             }
-        } else if (this.settings.hasOwnProperty(key)) {
+        } else if (this.settings?.hasOwnProperty(key)) {
              this.settings[key] = value;
         } else {
             console.warn(`Unknown setting key: ${key}`);
@@ -971,8 +973,10 @@ class FingerprintGuardSettings {
     }
 
     async saveData() {
-        this.settings.lastUpdate = new Date().toISOString();
-        this.stats.lastUpdate = this.settings.lastUpdate;
+        if (this.settings) {
+            this.settings.lastUpdate = new Date().toISOString();
+        }
+        this.stats.lastUpdate = this.settings?.lastUpdate;
         this.stats.activeProtections = this.countActiveProtections(); // Recalculate active protections
 
         try {
@@ -991,8 +995,10 @@ class FingerprintGuardSettings {
         if (confirm("Êtes-vous sûr de vouloir réinitialiser tous les paramètres aux valeurs par défaut? Cette action est irréversible.")) {
             this.settings = JSON.parse(JSON.stringify(this.defaultSettings));
             this.profiles = []; // Also reset profiles array in memory
-            this.settings.profiles = []; // And in settings to be saved
-            this.settings.activeProfileId = null;
+            if (this.settings) {
+                this.settings.profiles = [];
+                this.settings.activeProfileId = null;
+            }
             this.currentProfile = null;
             // Reset theme to default if stored separately
             localStorage.removeItem('fpg-theme');
@@ -1035,12 +1041,18 @@ class FingerprintGuardSettings {
                     this.settings = { ...JSON.parse(JSON.stringify(this.defaultSettings)), ...importedSettings };
                     
                     if (importedSettings.advancedProtection) {
-                         this.settings.advancedProtection = { ...this.defaultSettings.advancedProtection, ...importedSettings.advancedProtection};
+                         if (this.settings) {
+                             this.settings.advancedProtection = { ...this.defaultSettings.advancedProtection, ...importedSettings.advancedProtection};
+                         }
                     } else {
-                         this.settings.advancedProtection = { ...this.defaultSettings.advancedProtection };
+                         if (this.settings) {
+                             this.settings.advancedProtection = { ...this.defaultSettings.advancedProtection };
+                         }
                     }
-                    this.profiles = this.settings.profiles || [];
-                    this.settings.activeProfileId = importedSettings.activeProfileId || null;
+                    this.profiles = this.settings?.profiles || [];
+                    if (this.settings) {
+                        this.settings.activeProfileId = importedSettings.activeProfileId || null;
+                    }
                     
                     await this.saveData();
                     this.showNotification('Paramètres importés avec succès!', 'success');
@@ -1060,14 +1072,14 @@ class FingerprintGuardSettings {
     
     countActiveProtections() {
         let count = 0;
-        if (this.settings.spoofScreen) count++;
+        if (this.settings?.spoofScreen) count++;
         // Check navigator spoofing (if any specific property implies "active")
         // Example: if platform is not 'random' or default
-        if (this.settings.platform !== 'random' && this.settings.platform !== this.defaultSettings.platform) count++;
+        if (this.settings?.platform !== 'random' && this.settings?.platform !== this.defaultSettings.platform) count++;
         
-        if (this.settings.advancedProtection) {
-            for (const key in this.settings.advancedProtection) {
-                if (this.settings.advancedProtection[key] === true) {
+        if (this.settings?.advancedProtection) {
+            for (const key in this.settings?.advancedProtection) {
+                if (this.settings?.advancedProtection[key] === true) {
                     count++;
                 }
             }
@@ -1134,7 +1146,7 @@ class FingerprintGuardSettings {
 
         this.profiles.forEach(profile => {
             const profileItem = document.createElement('div');
-            profileItem.className = `profile-item ${this.settings.useFixedProfile && this.settings.activeProfileId === profile.id ? 'active' : ''}`;
+            profileItem.className = `profile-item ${this.settings?.useFixedProfile && this.settings?.activeProfileId === profile.id ? 'active' : ''}`;
             profileItem.dataset.profileId = profile.id;
             profileItem.innerHTML = `
                 <div class="profile-details-summary">
@@ -1158,16 +1170,16 @@ class FingerprintGuardSettings {
         const activeProfileDetailsEl = document.getElementById('activeProfileDetails');
         if (!activeProfileInfoEl || !activeProfileDetailsEl) return;
 
-        if (this.settings.useFixedProfile && this.currentProfile) {
+        if (this.settings?.useFixedProfile && this.currentProfile) {
             activeProfileInfoEl.classList.add('active');
             activeProfileDetailsEl.innerHTML = `
-                <p><strong>ID:</strong> ${this.currentProfile.id}</p>
-                <p><strong>Créé le:</strong> ${new Date(this.currentProfile.createdAt).toLocaleString()}</p>
-                <p><strong>Navigateur:</strong> ${this.currentProfile.fakeUserAgent?.userAgent?.split('Chrome/')[1]?.split(' ')[0] || 'N/A'}</p>
-                <p><strong>Plateforme:</strong> ${this.currentProfile.fakeNavigator?.platform || 'N/A'}</p>
-                <p><strong>Langue:</strong> ${this.currentProfile.fakeNavigator?.language || 'N/A'}</p>
-                <p><strong>Cœurs CPU:</strong> ${this.currentProfile.fakeNavigator?.hardwareConcurrency || 'N/A'}</p>
-                <p><strong>Mémoire:</strong> ${this.currentProfile.fakeNavigator?.deviceMemory || 'N/A'} GB</p>
+                <p><strong>ID:</strong> ${this.currentProfile?.id}</p>
+                <p><strong>Créé le:</strong> ${new Date(this.currentProfile?.createdAt).toLocaleString()}</p>
+                <p><strong>Navigateur:</strong> ${this.currentProfile?.fakeUserAgent?.userAgent?.split('Chrome/')[1]?.split(' ')[0] || this.currentProfile?.properties?.userAgent?.split('Chrome/')[1]?.split(' ')[0] || 'N/A'}</p>
+                <p><strong>Plateforme:</strong> ${this.currentProfile?.fakeNavigator?.platform || this.currentProfile?.properties?.navigator?.platform || 'N/A'}</p>
+                <p><strong>Langue:</strong> ${this.currentProfile?.fakeNavigator?.language || this.currentProfile?.properties?.navigator?.language || 'N/A'}</p>
+                <p><strong>Cœurs CPU:</strong> ${this.currentProfile?.fakeNavigator?.hardwareConcurrency || this.currentProfile?.properties?.navigator?.hardwareConcurrency || 'N/A'}</p>
+                <p><strong>Mémoire:</strong> ${this.currentProfile?.fakeNavigator?.deviceMemory || this.currentProfile?.properties?.navigator?.deviceMemory || 'N/A'} GB</p>
             `;
         } else {
             activeProfileInfoEl.classList.remove('active');
@@ -1199,9 +1211,11 @@ class FingerprintGuardSettings {
         try {
             this.showNotification('Génération d\'un nouveau profil...', 'info');
             const response = await chrome.runtime.sendMessage({ type: 'generateNewProfile' });
-            if (response && response.success) {
+            if (response?.success) {
                 this.profiles.push(response.data);
-                this.settings.profiles = this.profiles; // Update settings object for saving
+                if (this.settings) {
+                    this.settings.profiles = this.profiles; 
+                }
                 await this.saveData(); // Save profiles to storage
                 this.showNotification('Nouveau profil créé et sauvegardé!', 'success');
                 this.renderProfilesList();
@@ -1242,7 +1256,9 @@ class FingerprintGuardSettings {
             duplicatedProfile.name = `${profileToDuplicate.name || `Profil ${profileIdToDuplicate.substring(3, 9)}`} (Copie)`;
 
             this.profiles.push(duplicatedProfile);
-            this.settings.profiles = this.profiles; // Update settings object for saving
+            if (this.settings) {
+                this.settings.profiles = this.profiles;
+            }
             await this.saveData(); // Save profiles to storage
             this.showNotification('Profil dupliqué avec succès!', 'success');
             this.renderProfilesList();
@@ -1268,7 +1284,7 @@ class FingerprintGuardSettings {
             profileId = selectedProfileItem.dataset.profileId;
         }
 
-        if (this.settings.activeProfileId === profileId) {
+        if (this.settings?.activeProfileId === profileId) {
             this.showNotification('Impossible de supprimer le profil actif. Veuillez en activer un autre d\'abord.', 'warning');
             return;
         }
@@ -1280,9 +1296,11 @@ class FingerprintGuardSettings {
         try {
             this.showNotification('Suppression du profil...', 'info');
             const response = await chrome.runtime.sendMessage({ type: 'deleteProfile', id: profileId });
-            if (response && response.success) {
+            if (response?.success) {
                 this.profiles = this.profiles.filter(p => p.id !== profileId);
-                this.settings.profiles = this.profiles; // Update settings object for saving
+                if (this.settings) {
+                    this.settings.profiles = this.profiles;
+                }
                 await this.saveData(); // Save profiles to storage
                 this.showNotification('Profil supprimé avec succès!', 'success');
                 this.renderProfilesList();
@@ -1320,7 +1338,9 @@ class FingerprintGuardSettings {
         try {
             this.showNotification('Activation du profil...', 'info');
             // Update activeProfileId in settings and save
-            this.settings.activeProfileId = profileId;
+            if (this.settings) {
+                this.settings.activeProfileId = profileId;
+            }
             this.currentProfile = profileToActivate;
             await this.saveData(); // This will also update chrome.storage.local
             
@@ -1331,7 +1351,7 @@ class FingerprintGuardSettings {
                 value: profileId
             });
 
-            if (response && response.success) {
+            if (response?.success) {
                 this.showNotification(`Profil "${profileToActivate.name || profileId.substring(3, 9)}" activé!`, 'success');
                 this.renderProfilesList(); // Re-render to update active class
                 this.updateActiveProfileDisplay(); // Update active profile details
