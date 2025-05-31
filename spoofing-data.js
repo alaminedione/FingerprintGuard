@@ -16,60 +16,78 @@ const browsersVersions = {
  * @returns {object} Un objet contenant les informations générées.
  */
 function _generateBrowserAndPlatformInfo(config) {
-  const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
-  const osPlatforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
+  try {
+    const platforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
+    const osPlatforms = ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64', 'Macintosh; Intel Mac OS X 10_15_7', 'X11; Linux x86_64'];
 
-  const selectedPlatform = config.platform === 'random' ? getRandomElement(platforms) : (config.platform || getRandomElement(platforms));
-  const selectedUaPlatform = config.uaPlatform === 'random' ? getRandomElement(osPlatforms) : (config.uaPlatform || getRandomElement(osPlatforms));
-  
-  let browserName = config.browser === 'random' ? getRandomElement(Object.keys(browsersVersions)) : config.browser;
-  if (!browsersVersions[browserName]) {
-    browserName = 'Chrome'; // Fallback
+    const selectedPlatform = config.platform === 'random' ? getRandomElement(platforms) : (config.platform || getRandomElement(platforms));
+    const selectedUaPlatform = config.uaPlatform === 'random' ? getRandomElement(osPlatforms) : (config.uaPlatform || getRandomElement(osPlatforms));
+    
+    let browserName = config.browser === 'random' ? getRandomElement(Object.keys(browsersVersions)) : config.browser;
+    if (!browsersVersions[browserName]) {
+      console.warn(`⚠️ Unknown browser ${browserName}, falling back to Chrome`);
+      browserName = 'Chrome'; // Fallback
+    }
+
+    const availableVersions = browsersVersions[browserName];
+    const minNavVersion = config.minVersion === 0 || !config.minVersion ? availableVersions[availableVersions.length - 1] : config.minVersion;
+    const maxNavVersion = config.maxVersion === 0 || !config.maxVersion ? availableVersions[0] : config.maxVersion;
+    
+    let majorVersion = getRandomInRange(Math.min(minNavVersion, maxNavVersion), Math.max(minNavVersion, maxNavVersion));
+    let fullBrowserVersion;
+    let geckoVersion;
+    let secChUaPlatformValue;
+
+    const basePlatformString = selectedPlatform.split(';')[0].trim();
+    const baseUaPlatformString = selectedUaPlatform.split(';')[0].trim();
+
+    if (baseUaPlatformString.includes('Windows')) secChUaPlatformValue = '"Windows"';
+    else if (baseUaPlatformString.includes('Macintosh')) secChUaPlatformValue = '"macOS"';
+    else if (baseUaPlatformString.includes('Linux')) secChUaPlatformValue = '"Linux"';
+    else secChUaPlatformValue = '"Unknown"';
+
+    if (browserName === 'Safari') {
+      const minorSafari = getRandomInRange(0, 5);
+      fullBrowserVersion = `${majorVersion}.${minorSafari}`;
+    } else if (browserName === 'Firefox') {
+      majorVersion = getRandomElement(availableVersions) || majorVersion;
+      fullBrowserVersion = `${majorVersion}.${getRandomInRange(0, 2)}.0`;
+      geckoVersion = `${majorVersion}.0`;
+    } else { // Chrome, Edge, Opera
+      majorVersion = getRandomElement(availableVersions) || getRandomInRange(110, 125);
+      fullBrowserVersion = `${majorVersion}.${getRandomInRange(0, 9)}.${getRandomInRange(1000, 5000)}.${getRandomInRange(0, 99)}`;
+    }
+
+    const macPlatformForUA = selectedPlatform.includes('Macintosh') ? 'Macintosh; Intel Mac OS X 10_15_7' : selectedPlatform;
+
+    return {
+      browserName,
+      majorVersion,
+      fullBrowserVersion,
+      geckoVersion,
+      selectedPlatform,
+      selectedUaPlatform,
+      basePlatformString,
+      baseUaPlatformString,
+      secChUaPlatformValue,
+      macPlatformForUA
+    };
+  } catch (error) {
+    console.error('❌ Error generating browser info:', error);
+    // Retour de configuration par défaut en cas d'erreur
+    return {
+      browserName: 'Chrome',
+      majorVersion: 120,
+      fullBrowserVersion: '120.0.0.0',
+      geckoVersion: null,
+      selectedPlatform: 'Windows NT 10.0; Win64; x64',
+      selectedUaPlatform: 'Windows NT 10.0; Win64; x64',
+      basePlatformString: 'Windows NT 10.0',
+      baseUaPlatformString: 'Windows NT 10.0',
+      secChUaPlatformValue: '"Windows"',
+      macPlatformForUA: 'Windows NT 10.0; Win64; x64'
+    };
   }
-
-  const availableVersions = browsersVersions[browserName];
-  const minNavVersion = config.minVersion === 0 || !config.minVersion ? availableVersions[availableVersions.length - 1] : config.minVersion;
-  const maxNavVersion = config.maxVersion === 0 || !config.maxVersion ? availableVersions[0] : config.maxVersion;
-  
-  let majorVersion = getRandomInRange(minNavVersion, maxNavVersion);
-  let fullBrowserVersion;
-  let geckoVersion;
-  let secChUaPlatformValue;
-
-  const basePlatformString = selectedPlatform.split(';')[0].trim();
-  const baseUaPlatformString = selectedUaPlatform.split(';')[0].trim();
-
-  if (baseUaPlatformString.includes('Windows')) secChUaPlatformValue = '"Windows"';
-  else if (baseUaPlatformString.includes('Macintosh')) secChUaPlatformValue = '"macOS"';
-  else if (baseUaPlatformString.includes('Linux')) secChUaPlatformValue = '"Linux"';
-  else secChUaPlatformValue = '"Unknown"';
-
-  if (browserName === 'Safari') {
-    const minorSafari = getRandomInRange(0, 5);
-    fullBrowserVersion = `${majorVersion}.${minorSafari}`;
-  } else if (browserName === 'Firefox') {
-    majorVersion = getRandomElement(availableVersions);
-    fullBrowserVersion = `${majorVersion}.${getRandomInRange(0, 2)}.0`;
-    geckoVersion = `${majorVersion}.0`;
-  } else { // Chrome, Edge, Opera
-    majorVersion = getRandomElement(availableVersions) || getRandomInRange(110, 125);
-    fullBrowserVersion = `${majorVersion}.${getRandomInRange(0, 9)}.${getRandomInRange(1000, 5000)}.${getRandomInRange(0, 99)}`;
-  }
-
-  const macPlatformForUA = selectedPlatform.includes('Macintosh') ? 'Macintosh; Intel Mac OS X 10_15_7' : selectedPlatform;
-
-  return {
-    browserName,
-    majorVersion,
-    fullBrowserVersion,
-    geckoVersion,
-    selectedPlatform,
-    selectedUaPlatform,
-    basePlatformString,
-    baseUaPlatformString,
-    secChUaPlatformValue,
-    macPlatformForUA
-  };
 }
 
 // Données avancées pour le spoofing
