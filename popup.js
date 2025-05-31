@@ -24,7 +24,10 @@ class FingerprintGuardPopup {
             'blockJS': 'blockJS'
         };
 
-        this.initializeElements();
+        if (!this.initializeElements()) {
+            console.error("❌ Failed to initialize popup elements");
+            return;
+        }
         this.attachEventListeners();
         this.applyTheme();
         this.loadSettings();
@@ -54,6 +57,17 @@ class FingerprintGuardPopup {
         // Notification
         this.notification = document.getElementById('notification');
         this.notificationText = document.getElementById('notificationText');
+
+        // Vérification de sécurité pour les éléments critiques
+        const criticalElements = ['statusText', 'statusIcon', 'notification', 'notificationText'];
+        for (const elementId of criticalElements) {
+            if (!this[elementId]) {
+                console.error(`❌ Critical element not found: ${elementId}`);
+                this.showError();
+                return false;
+            }
+        }
+        return true;
         
         // Toggle switches
         this.toggleSwitches = document.querySelectorAll('.toggle-switch');
@@ -89,7 +103,7 @@ class FingerprintGuardPopup {
             
             const response = await this.sendMessage({ type: 'getStatus' });
             
-            if (response && response.success) {
+            if (response?.success) {
                 this.settings = response.data;
                 this.updateInterface();
                 this.updateStats();
@@ -130,7 +144,7 @@ class FingerprintGuardPopup {
                 value: newValue
             });
             
-            if (response && response.success) {
+            if (response?.success) {
                 this.settings[settingKey] = newValue;
                 this.updateStatus();
                 this.updateStats();
@@ -175,7 +189,7 @@ class FingerprintGuardPopup {
         });
         
         // Handle ghost mode
-        if (this.settings.ghostMode) {
+        if (this.settings?.ghostMode) {
             this.toggleGhostMode(true);
         }
         
@@ -192,7 +206,7 @@ class FingerprintGuardPopup {
         
         let statusClass, statusText, statusIcon;
         
-        if (this.settings.ghostMode) {
+        if (this.settings?.ghostMode) {
             statusClass = 'ghost';
             statusText = 'Mode Fantôme Actif';
             statusIcon = '👻';
@@ -208,9 +222,13 @@ class FingerprintGuardPopup {
         
         // Update status card
         this.statusCard.className = `status-card ${statusClass}`;
-        this.statusText.textContent = statusText;
-        this.statusIcon.textContent = statusIcon;
-        this.statusIcon.className = `status-icon ${statusClass}`;
+        if (this.statusText) {
+            this.statusText.textContent = statusText;
+        }
+        if (this.statusIcon) {
+            this.statusIcon.textContent = statusIcon;
+            this.statusIcon.className = `status-icon ${statusClass}`;
+        }
         
         // Update stats
         this.stats.activeProtections = activeProtections;
@@ -356,26 +374,34 @@ class FingerprintGuardPopup {
     }
 
     processNotificationQueue() {
-        if (this.notificationQueue.length === 0 || this.notification.classList.contains('show')) {
+        if (this.notificationQueue.length === 0 || this.notification?.classList.contains('show')) {
             return;
         }
         
         const { message, type } = this.notificationQueue.shift();
         
-        this.notificationText.textContent = message;
-        this.notification.className = `notification ${type}`;
-        this.notification.classList.add('show');
+        if (this.notificationText) {
+            this.notificationText.textContent = message;
+        }
+        if (this.notification) {
+            this.notification.className = `notification ${type}`;
+        }
+        this.notification?.classList.add('show');
         
         setTimeout(() => {
-            this.notification.classList.remove('show');
+            this.notification?.classList.remove('show');
             setTimeout(() => this.processNotificationQueue(), 300);
         }, 3000);
     }
 
     showError() {
         this.statusCard.classList.add('inactive');
-        this.statusText.textContent = 'Erreur de connexion';
-        this.statusIcon.textContent = '❌';
+        if (this.statusText) {
+            this.statusText.textContent = 'Erreur de connexion';
+        }
+        if (this.statusIcon) {
+            this.statusIcon.textContent = '❌';
+        }
     }
 
     handleKeyboard(event) {

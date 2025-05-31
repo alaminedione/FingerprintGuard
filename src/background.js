@@ -3,10 +3,10 @@
  * Architecture modulaire et organisée
  */
 
-import { SettingsManager } from './src/core/settings-manager.js';
-import { ProfileManager } from './src/core/profile-manager.js';
-import { ScriptInjector } from './src/core/script-injector.js';
-import { SpoofingService } from './src/core/spoofing-service.js';
+import { SettingsManager } from './core/settings-manager.js';
+import { ProfileManager } from './core/profile-manager.js';
+import { ScriptInjector } from './core/script-injector.js';
+import { SpoofingService } from './core/spoofing-service.js';
 
 /**
  * Classe principale de l'extension FingerprintGuard
