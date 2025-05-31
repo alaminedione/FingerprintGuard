@@ -154,87 +154,98 @@ export function spoofWebGL() {
  * - Supprime de nombreux en-têtes HTTP via `declarativeNetRequest`.
  * @param {number} tabId - L'ID de l'onglet où appliquer le Ghost Mode.
  */
-export function applyGhostMode(tabId) {
-  chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    injectImmediately: true,
-    world: 'MAIN',
-    func: () => {
-      const makeUndefined = (obj, prop) => {
+export async function applyGhostMode(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      injectImmediately: true,
+      world: 'MAIN',
+      func: () => {
+        const makeUndefined = (obj, prop) => {
+          try {
+            Object.defineProperty(obj, prop, {
+              get: () => undefined,
+              configurable: false,
+              enumerable: true
+            });
+            console.log(`Propriété ${prop} définie comme undefined`);
+          } catch (e) {
+            console.debug(`Impossible de modifier ${prop}:`, e.message);
+          }
+        };
+
+        // Liste des propriétés à rendre undefined
+        const propsToHide = [
+          'userAgent', 'platform', 'language', 'languages', 'hardwareConcurrency',
+          'deviceMemory', 'vendor', 'appVersion', 'userAgentData', 'oscpu',
+          'connection', 'getBattery', 'getGamepads', 'permissions', 'mediaDevices',
+          'serviceWorker', 'geolocation', 'clipboard', 'credentials', 'keyboard',
+          'locks', 'mediaCapabilities', 'mediaSession', 'plugins', 'presentation',
+          'scheduling', 'usb', 'xr', 'mimeTypes'
+        ];
+
+        // Appliquer undefined à toutes les propriétés
+        propsToHide.forEach(prop => {
+          if (navigator.hasOwnProperty(prop) || prop in navigator) {
+            makeUndefined(navigator, prop);
+          }
+        });
+
+        // Rendre Canvas inutilizable
         try {
-          Object.defineProperty(obj, prop, {
-            get: () => undefined,
-            configurable: false,
-            enumerable: true
-          });
-          console.log(`Modifié ${prop} en undefined`);
+          const origGetContext = HTMLCanvasElement.prototype.getContext;
+          HTMLCanvasElement.prototype.getContext = function () {
+            console.log('Canvas getContext() blocked by Ghost Mode');
+            return null;
+          };
         } catch (e) {
-          console.debug(`Impossible de modifier ${prop}:`, e);
+          console.debug('Cannot block Canvas getContext:', e.message);
         }
-      };
+      }
+    });
 
-      // Liste des propriétés à rendre undefined
-      const propsToHide = [
-        'userAgent', 'platform', 'language', 'languages', 'hardwareConcurrency',
-        'deviceMemory', 'vendor', 'appVersion', 'userAgentData', 'oscpu',
-        'connection', 'getBattery', 'getGamepads', 'permissions', 'mediaDevices',
-        'serviceWorker', 'geolocation', 'clipboard', 'credentials', 'keyboard',
-        'locks', 'mediaCapabilities', 'mediaSession', 'plugins', 'presentation',
-        'scheduling', 'usb', 'xr', 'mimeTypes',
-        //web audio
+    // Modifier les en-têtes HTTP - avec gestion d'erreur
+    const rule = {
+      id: 999,
+      priority: 1,
+      action: {
+        type: "modifyHeaders",
+        requestHeaders: [
+          { header: "User-Agent", operation: "remove" },
+          { header: "Accept-Language", operation: "remove" },
+          { header: "DNT", operation: "remove" },
+          { header: "Sec-CH-UA", operation: "remove" },
+          { header: "Sec-CH-UA-Mobile", operation: "remove" },
+          { header: "Sec-CH-UA-Platform", operation: "remove" },
+          { header: "Sec-CH-UA-Platform-Version", operation: "remove" },
+          { header: "sec-ch-ua-full-version-list", operation: "remove" },
+          { header: "sec-ch-ua-mobile", operation: "remove" },
+          { header: "sec-ch-ua-platform", operation: "remove" },
+          { header: "sec-ch-ua-platform-version", operation: "remove" },
+          { header: "Device-Memory", operation: "remove" },
+          { header: "Referer", operation: "remove" },
+          { header: "Sec-Fetch-Site", operation: "remove" },
+          { header: "Sec-Ch-Device-Memory", operation: "remove" },
+          { header: "Sec-ch-drp", operation: "remove" },
+          { header: "viewport-width", operation: "remove" },
+          { header: "viewport-height", operation: "remove" },
+        ]
+      },
+      condition: {
+        urlFilter: "*",
+        resourceTypes: ["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
+      }
+    };
 
-
-      ];
-
-      // Appliquer undefined à toutes les propriétés
-      propsToHide.forEach(prop => makeUndefined(navigator, prop));
-
-      // Rendre Canvas inutilisable
-      const origGetContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function () {
-        return null;
-      };
-    }
-  });
-
-  // Modifier les en-têtes HTTP
-  const rule = {
-    id: 999,
-    priority: 1,
-    action: {
-      type: "modifyHeaders",
-      requestHeaders: [
-        { header: "User-Agent", operation: "remove" },
-        { header: "Accept-Language", operation: "remove" },
-        { header: "DNT", operation: "remove" },
-        { header: "Sec-CH-UA", operation: "remove" },
-        { header: "Sec-CH-UA-Mobile", operation: "remove" },
-        { header: "Sec-CH-UA-Platform", operation: "remove" },
-        { header: "Sec-CH-UA-Platform-Version", operation: "remove" },
-        { header: "sec-ch-ua-full-version-list", operation: "remove" },
-        { header: "sec-ch-ua-mobile", operation: "remove" },
-        { header: "sec-ch-ua-platform", operation: "remove" },
-        { header: "sec-ch-ua-platform-version", operation: "remove" },
-        { header: "Device-Memory", operation: "remove" },
-        { header: "Referer", operation: "remove" },
-        { header: "Sec-Fetch-Site", operation: "remove" },
-        // { header: "Accept-Encoding", operation: "remove" },
-        { header: "Sec-Ch-Device-Memory", operation: "remove" },
-        { header: "Sec-ch-drp", operation: "remove" },
-        { header: "viewport-width", operation: "remove" },
-        { header: "viewport-height", operation: "remove" },
-      ]
-    },
-    condition: {
-      urlFilter: "*",
-      resourceTypes: ["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
-    }
-  };
-
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [999, 1],
-    addRules: [rule]
-  });
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [999, 1],
+      addRules: [rule]
+    });
+    
+    console.log('✅ Ghost Mode applied successfully');
+  } catch (error) {
+    console.error('❌ Error applying Ghost Mode:', error);
+  }
 }
 /**
  * Applique les propriétés d'écran falsifiées.

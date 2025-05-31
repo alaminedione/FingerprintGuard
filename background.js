@@ -6,8 +6,7 @@ import { applySpoofingNavigator, applyUserAgentData, applyUserAgent, spoofWebGL,
 // Configuration par défaut
 const defaultSettings = {
   ghostMode: false,
-  spoofNavigator: false,
-  spoofUserAgent: false,
+  spoofBrowser: false,
   spoofCanvas: false,
   spoofScreen: false, // Nouvelle option pour le spoofing d'écran
   blockImages: false,
@@ -72,8 +71,8 @@ async function initialize() {
     const stored = await chrome.storage.sync.get(Object.keys(defaultSettings));
     settings = { ...defaultSettings, ...stored };
     
-    // Valider les paramètres chargés
-    validateSettings(settings);
+    // Valider les paramètres chargés - maintenant retourne les settings validés
+    settings = validateSettings(settings);
 
     // Charger les profils existants avec gestion d'erreur
     const storedProfiles = await chrome.storage.local.get('profiles');
@@ -150,11 +149,12 @@ async function initialize() {
  */
 function validateSettings(settings) {
   if (!settings || typeof settings !== 'object') {
-    throw new Error('Invalid settings object');
+    console.error('❌ Invalid settings object, using defaults');
+    return { ...defaultSettings };
   }
   
   // Valider les types booléens
-  const booleanFields = ['ghostMode', 'spoofNavigator', 'spoofUserAgent', 'spoofCanvas', 'spoofScreen', 'blockImages', 'blockJS', 'autoReloadAll', 'autoReloadCurrent', 'useFixedProfile', 'generateNewProfileOnStart'];
+  const booleanFields = ['ghostMode', 'spoofBrowser', 'spoofCanvas', 'spoofScreen', 'blockImages', 'blockJS', 'autoReloadAll', 'autoReloadCurrent', 'useFixedProfile', 'generateNewProfileOnStart'];
   
   booleanFields.forEach(field => {
     if (settings[field] !== undefined && typeof settings[field] !== 'boolean') {
@@ -163,15 +163,31 @@ function validateSettings(settings) {
     }
   });
   
-  // Valider les nombres
+  // Valider les nombres non-négatifs
   const numberFields = ['hardwareConcurrency', 'deviceMemory', 'minVersion', 'maxVersion', 'hDeviceMemory'];
   
   numberFields.forEach(field => {
-    if (settings[field] !== undefined && (typeof settings[field] !== 'number' || isNaN(settings[field]))) {
-      console.warn(`⚠️ Invalid number field ${field}, resetting to default`);
+    if (settings[field] !== undefined) {
+      const value = Number(settings[field]);
+      if (isNaN(value) || value < 0) {
+        console.warn(`⚠️ Invalid number field ${field}, resetting to default`);
+        settings[field] = defaultSettings[field];
+      } else {
+        settings[field] = value;
+      }
+    }
+  });
+  
+  // Valider les chaînes de caractères
+  const stringFields = ['platform', 'language', 'browser', 'referer'];
+  stringFields.forEach(field => {
+    if (settings[field] !== undefined && typeof settings[field] !== 'string') {
+      console.warn(`⚠️ Invalid string field ${field}, resetting to default`);
       settings[field] = defaultSettings[field];
     }
   });
+  
+  return settings;
 }
 
 initialize();
@@ -286,37 +302,47 @@ function getProfileById(profileId) {
  * @returns {*} La valeur de la configuration.
  */
 function getConfigValue(key) {
-  if (settings.useFixedProfile && currentProfile) {
-    // Assurez-vous que currentProfile.properties existe avant d'y accéder
-    return currentProfile.properties && currentProfile.properties[key] !== undefined ? currentProfile.properties[key] : settings[key];
+  if (settings.useFixedProfile && currentProfile && currentProfile.properties) {
+    return currentProfile.properties[key] !== undefined ? currentProfile.properties[key] : settings[key];
   }
   return settings[key];
 }
 
 
 // Écoute des changements de paramètres
-chrome.storage.onChanged.addListener((changes) => {
-  for (let [key, { newValue }] of Object.entries(changes)) {
-    // Mettre à jour les valeurs de settings
-    settings[key] = newValue;
+chrome.storage.onChanged.addListener(async (changes) => {
+  try {
+    for (let [key, { newValue }] of Object.entries(changes)) {
+      // Mettre à jour les valeurs de settings avec validation
+      if (Object.prototype.hasOwnProperty.call(defaultSettings, key)) {
+        settings[key] = newValue;
 
-    // Si on change de profil actif
-    if (key === 'activeProfileId' && settings.useFixedProfile) {
-      const newProfileId = newValue;
-      currentProfile = getProfileById(newProfileId); // Utiliser la fonction pour obtenir le profil
+        // Si on change de profil actif
+        if (key === 'activeProfileId' && settings.useFixedProfile) {
+          const newProfileId = newValue;
+          currentProfile = getProfileById(newProfileId);
 
-      if (currentProfile) {
-        console.log(`activeProfileId: ${currentProfile.id}`);
+          if (!currentProfile && newProfileId) {
+            console.warn(`⚠️ Profile ${newProfileId} not found, generating new one`);
+            currentProfile = generateNewProfile();
+            settings.activeProfileId = currentProfile.id;
+            await saveProfile(currentProfile);
+            await chrome.storage.sync.set({ activeProfileId: currentProfile.id });
+          }
+
+          console.log(`ActiveProfileId updated: ${currentProfile?.id || 'None'}`);
+        }
+
+        console.log(`Setting updated: ${key} = ${newValue}`);
       } else {
-        currentProfile = generateNewProfile();
-        settings.activeProfileId = currentProfile.id;
-        saveProfile(currentProfile);
+        console.warn(`⚠️ Unknown setting ignored: ${key}`);
       }
     }
-
-    console.log(`paramètres modifiés: ${key} = ${newValue}`);
+    
+    await handleAutoReload();
+  } catch (error) {
+    console.error('❌ Error handling settings change:', error);
   }
-  handleAutoReload();
 });
 
 
@@ -492,71 +518,100 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Écoute les navigations et injecte les scripts
-chrome.webNavigation.onCommitted.addListener((details) => {
-  if (details.url.startsWith('chrome://') || details.url.startsWith("chrome-extension://")) {
-    return;
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+  try {
+    if (details.url.startsWith('chrome://') || 
+        details.url.startsWith("chrome-extension://") ||
+        details.url.startsWith('about:') ||
+        details.url.startsWith('moz-extension://')) {
+      return;
+    }
+
+    console.log('Navigation vers:', details.url);
+
+    if (settings.ghostMode) {
+      console.log('Activation Ghost Mode sur la page:', details.url);
+      await applyGhostMode(details.tabId);
+      return;
+    } else {
+      // S'assurer qu'on supprime la règle 999 du Ghost Mode
+      try {
+        await chrome.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: [999],
+        });
+      } catch (error) {
+        console.debug('No rule 999 to remove:', error.message);
+      }
+    }
+
+    // Appliquer les protections de manière séquentielle
+    const protectionsToApply = [];
+
+    if (settings.spoofCanvas) {
+      console.log('Activation spoof canvas sur la page:', details.url);
+      protectionsToApply.push(
+        { script: './spoofer/spoof-canvas.js' },
+        { script: spoofWebGL }
+      );
+    }
+
+    if (settings.spoofScreen) {
+      console.log('Activation spoof screen sur la page:', details.url);
+      const fakeScreenProps = getFakeScreenProperties(settings);
+      protectionsToApply.push({ script: applyScreenSpoofing, args: fakeScreenProps });
+    }
+
+    if (settings.spoofBrowser) {
+      console.log('Activation spoof browser (Navigator + User-Agent + Client Hints) sur la page:', details.url);
+      await spoofBrowser(details.tabId, settings);
+    }
+
+    // Injecter toutes les protections
+    if (protectionsToApply.length > 0) {
+      await injectMultipleScripts(details.tabId, protectionsToApply);
+    }
+
+  } catch (error) {
+    console.error('❌ Error in onCommitted listener:', error);
   }
+});
 
-  console.log('navigation vers: ', details.url);
+// Gérer le blocage des images et des scripts  
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  try {
+    if (details.url.startsWith('chrome://') || 
+        details.url.startsWith("chrome-extension://") ||
+        details.url.startsWith('about:') ||
+        details.url.startsWith('moz-extension://')) {
+      return;
+    }
+    
+    console.log('Navigation vers:', details.url);
 
-  if (settings.ghostMode) {
-    console.log('activation ghost mode sur  la page: ', details.url);
-    applyGhostMode(details.tabId);
-    return;
-  } else {
-    //make sure that we remove rule 999
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [999],
-    });
+    // Appliquer les paramètres de blocage content settings
+    try {
+      await chrome.contentSettings.javascript.set({
+        primaryPattern: '<all_urls>',
+        setting: settings.blockJS ? 'block' : 'allow'
+      });
+      console.log('Block JS:', settings.blockJS);
+    } catch (error) {
+      console.warn('⚠️ Cannot set JavaScript content setting:', error.message);
+    }
+
+    try {
+      await chrome.contentSettings.images.set({
+        primaryPattern: '<all_urls>',
+        setting: settings.blockImages ? 'block' : 'allow'
+      });
+      console.log('Block images:', settings.blockImages);
+    } catch (error) {
+      console.warn('⚠️ Cannot set images content setting:', error.message);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in onBeforeNavigate listener:', error);
   }
-
-
-  if (settings.spoofCanvas) {
-    console.log('activation spoof canvas sur  la page: ', details.url);
-    injectScript(details.tabId, './spoofer/spoof-canvas.js');
-    injectScript(details.tabId, spoofWebGL); // Appel de la fonction spoofWebGL
-  }
-
-  if (settings.spoofScreen) {
-    console.log('activation spoof screen sur la page: ', details.url);
-    const fakeScreenProps = getFakeScreenProperties(settings);
-    injectScript(details.tabId, applyScreenSpoofing, fakeScreenProps);
-  }
-
-  if (settings.spoofNavigator) {
-    console.log('activation spoof navigator sur  la page: ', details.url);
-    spoofNavigator(details.tabId, settings);
-  }
-
-  if (settings.spoofUserAgent) {
-    console.log('activation spoof user agent sur  la page: ', details.url);
-    spoofUserAgent(details.tabId, settings);
-  } else {
-    //desactive le rule id 1
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [1]
-    })
-  }
-})
-
-// Gérer le blocage des images et des scripts
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.url.startsWith('chrome://') || details.url.startsWith("chrome-extension://")) {
-    return;
-  }
-  console.log('navigation vers: ', details.url);
-
-  chrome.contentSettings.javascript.set({
-    primaryPattern: '<all_urls>',
-    setting: settings.blockJS ? 'block' : 'allow'
-  });
-  console.log('block js: ', settings.blockJS);
-
-  chrome.contentSettings.images.set({
-    primaryPattern: '<all_urls>',
-    setting: settings.blockImages ? 'block' : 'allow'
-  });
-  console.log('block images: ', settings.blockImages);
 });
 
 /**
@@ -583,11 +638,12 @@ async function handleAutoReload() {
 }
 
 /**
- * Applique l'usurpation des propriétés du navigateur et des données User-Agent.
+ * Applique l'usurpation complète du navigateur (Navigator + User-Agent + Client Hints).
  * @param {number} tabId - L'ID de l'onglet où appliquer l'usurpation.
  * @param {object} config - La configuration actuelle de l'extension.
  */
-function spoofNavigator(tabId, config) {
+function spoofBrowser(tabId, config) {
+  // Générer les données falsifiées de manière cohérente
   const fakeNavigator = settings.useFixedProfile && currentProfile
     ? getFakeNavigatorPropertiesFromProfile(currentProfile)
     : getFakeNavigatorProperties(config);
@@ -596,9 +652,30 @@ function spoofNavigator(tabId, config) {
     ? getFakeUserAgentDataFromProfile(currentProfile)
     : getFakeUserAgentData(config, config.browser);
 
-  console.log('Usurpation de la navigation sur la page');
+  // Appliquer les règles de modification des en-têtes HTTP (Client Hints)
+  const newRule = settings.activeProfileId && currentProfile 
+    ? getRulesFromProfiles(currentProfile) 
+    : getNewRules(config, 1);
+    
+  chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [1],
+    addRules: newRule,
+  });
+
+  // Injecter les scripts de modification JavaScript
+  console.log('Injection des propriétés Navigator falsifiées');
   injectScript(tabId, applySpoofingNavigator, fakeNavigator);
+  
+  console.log('Injection des données UserAgentData falsifiées');
   injectScript(tabId, applyUserAgentData, fakeUserAgentData);
+
+  // Appliquer aussi les propriétés User-Agent de base si nécessaire
+  const fakeUserAgent = settings.activeProfileId && currentProfile
+    ? getFakeUserAgentFromProfile(currentProfile)
+    : getFakeUserAgent(settings);
+    
+  console.log('Injection des propriétés User-Agent de base');
+  injectScript(tabId, applyUserAgent, fakeUserAgent);
 }
 
 
@@ -638,29 +715,7 @@ function getFakeUserAgentFromProfile(profile) {
   return profile.fakeUserAgent
 }
 
-/**
- * Applique l'usurpation de l'User-Agent via les règles declarativeNetRequest et l'injection de script.
- * @param {number} tabId - L'ID de l'onglet où appliquer l'usurpation.
- * @param {object} config - La configuration actuelle de l'extension.
- */
-function spoofUserAgent(tabId, config) {
-  const newRule = settings.activeProfileId && currentProfile ? getRulesFromProfiles(currentProfile) : getNewRules(config, 1); // 1 est un ID de règle unique
-  console.log('usurpation de l\'user agent sur la page: ');
-  // const newRule = getNewRules(config, 1); // 1 est un ID de règle unique
-  chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [1],
-    addRules: newRule,
-  });
-  console.log('injection de  l\'script de modification de user agent');
-  if (!settings.spoofNavigator) {
-    const fakeUserAgent = settings.activeProfileId && currentProfile
-      ? getFakeUserAgentFromProfile(currentProfile)
-      : getFakeUserAgent(settings);
-    console.log('iniatilisation de l\'injection de script de modification de user agent  avec comme args : ', fakeUserAgent);
-    console.log('le profile actuel est : ', currentProfile);
-    injectScript(tabId, applyUserAgent, fakeUserAgent);
-  }
-}
+
 
 /**
  * Injecte un script dans un onglet spécifié avec gestion d'erreur robuste.

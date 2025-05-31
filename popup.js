@@ -17,8 +17,7 @@ class FingerprintGuardPopup {
         
         this.settingsMappings = {
             'ghostMode': 'ghostMode',
-            'spoofNavigator': 'spoofNavigator',
-            'spoofUserAgent': 'spoofUserAgent',
+            'spoofBrowser': 'spoofBrowser',
             'spoofCanvas': 'spoofCanvas',
             'spoofScreen': 'spoofScreen',
             'blockImages': 'blockImages',
@@ -421,8 +420,7 @@ class FingerprintGuardPopup {
     getSettingDisplayName(settingKey) {
         const names = {
             ghostMode: 'Mode Fantôme',
-            spoofNavigator: 'Navigateur',
-            spoofUserAgent: 'User-Agent',
+            spoofBrowser: 'Navigateur & Client Hints',
             spoofCanvas: 'Canvas',
             spoofScreen: 'Écran',
             blockImages: 'Images',
@@ -433,9 +431,24 @@ class FingerprintGuardPopup {
 
     async sendMessage(message) {
         try {
-            return await chrome.runtime.sendMessage(message);
+            if (!chrome?.runtime?.sendMessage) {
+                throw new Error('Chrome extension API not available');
+            }
+            
+            const response = await chrome.runtime.sendMessage(message);
+            
+            if (!response) {
+                throw new Error('No response received from background script');
+            }
+            
+            return response;
         } catch (error) {
             console.error('Error sending message:', error);
+            // Si l'extension est rechargée, la popup peut perdre la connexion
+            if (error.message.includes('Extension context invalidated')) {
+                window.location.reload();
+                return null;
+            }
             throw error;
         }
     }
