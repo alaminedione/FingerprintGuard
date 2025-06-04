@@ -9,10 +9,12 @@ class FingerprintGuardSettings {
         this.profiles = [];
         this.currentProfile = null;
         // Récupération du thème depuis les paramètres centraux
-this.theme = 'light'; // Valeur par défaut temporaire
+        this.theme = null; // Sera initialisé dans loadData
         this.isLoading = false;
         this.isDirty = false;
         this.autoSave = true;
+        this.saveTimeout = null; // Pour le debounce
+        this.eventListenersAttached = false; // Pour éviter les listeners multiples
         this.stats = {
             totalProfiles: 0,
             activeProtections: 0,
@@ -210,26 +212,26 @@ this.theme = 'light'; // Valeur par défaut temporaire
             <div class="form-grid">
                 <div class="toggle-group" data-setting="autoReloadAll">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🔄</div>
+                        <div class="toggle-icon" aria-hidden="true">🔄</div>
                         <div class="toggle-details">
                             <h4>Rechargement automatique (tous)</h4>
                             <p>Recharge automatiquement tous les onglets lors des changements</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="autoReloadAll">
+                    <div class="toggle-switch" data-toggle="autoReloadAll" role="switch" tabindex="0" aria-label="Activer le rechargement automatique de tous les onglets">
                         <input type="checkbox" id="autoReloadAll" hidden>
                     </div>
                 </div>
 
                 <div class="toggle-group" data-setting="autoReloadCurrent">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🔄</div>
+                        <div class="toggle-icon" aria-hidden="true">🔄</div>
                         <div class="toggle-details">
                             <h4>Rechargement automatique (actuel)</h4>
                             <p>Recharge uniquement l'onglet actuel lors des changements</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="autoReloadCurrent">
+                    <div class="toggle-switch" data-toggle="autoReloadCurrent" role="switch" tabindex="0" aria-label="Activer le rechargement automatique de l'onglet actuel">
                         <input type="checkbox" id="autoReloadCurrent" hidden>
                     </div>
                 </div>
@@ -490,13 +492,13 @@ this.theme = 'light'; // Valeur par défaut temporaire
 
             <div class="toggle-group" data-setting="spoofScreen">
                 <div class="toggle-info">
-                    <div class="toggle-icon">📺</div>
+                    <div class="toggle-icon" aria-hidden="true">📺</div>
                     <div class="toggle-details">
                         <h4>Activer le Spoofing d'Écran</h4>
                         <p>Falsifie les propriétés de résolution et de ratio</p>
                     </div>
                 </div>
-                <div class="toggle-switch" data-toggle="spoofScreen">
+                <div class="toggle-switch" data-toggle="spoofScreen" role="switch" tabindex="0" aria-label="Activer la falsification d'écran">
                     <input type="checkbox" id="spoofScreen" hidden>
                 </div>
             </div>
@@ -552,26 +554,26 @@ this.theme = 'light'; // Valeur par défaut temporaire
             <div class="form-grid">
                 <div class="toggle-group" data-setting="useFixedProfile">
                     <div class="toggle-info">
-                        <div class="toggle-icon">📌</div>
+                        <div class="toggle-icon" aria-hidden="true">📌</div>
                         <div class="toggle-details">
                             <h4>Utiliser un Profil Fixe</h4>
                             <p>Maintient une identité cohérente entre les sessions</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="useFixedProfile">
+                    <div class="toggle-switch" data-toggle="useFixedProfile" role="switch" tabindex="0" aria-label="Utiliser un profil fixe">
                         <input type="checkbox" id="useFixedProfile" hidden>
                     </div>
                 </div>
 
                 <div class="toggle-group" data-setting="generateNewProfileOnStart">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🔄</div>
+                        <div class="toggle-icon" aria-hidden="true">🔄</div>
                         <div class="toggle-details">
                             <h4>Nouveau Profil au Démarrage</h4>
                             <p>Génère automatiquement un nouveau profil au démarrage</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="generateNewProfileOnStart">
+                    <div class="toggle-switch" data-toggle="generateNewProfileOnStart" role="switch" tabindex="0" aria-label="Générer un nouveau profil au démarrage">
                         <input type="checkbox" id="generateNewProfileOnStart" hidden>
                     </div>
                 </div>
@@ -633,65 +635,65 @@ this.theme = 'light'; // Valeur par défaut temporaire
             <div class="form-grid">
                 <div class="toggle-group" data-setting="advancedProtection.webrtc">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🌐</div>
+                        <div class="toggle-icon" aria-hidden="true">🌐</div>
                         <div class="toggle-details">
                             <h4>Protection WebRTC</h4>
                             <p>Empêche les fuites d'IP et le fingerprinting WebRTC</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="advancedProtection.webrtc">
+                    <div class="toggle-switch" data-toggle="advancedProtection.webrtc" role="switch" tabindex="0" aria-label="Activer la protection WebRTC">
                         <input type="checkbox" id="advancedWebRTC" hidden>
                     </div>
                 </div>
 
                 <div class="toggle-group" data-setting="advancedProtection.audio">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🔊</div>
+                        <div class="toggle-icon" aria-hidden="true">🔊</div>
                         <div class="toggle-details">
                             <h4>Protection Audio</h4>
                             <p>Ajoute du bruit au fingerprinting audio</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="advancedProtection.audio">
+                    <div class="toggle-switch" data-toggle="advancedProtection.audio" role="switch" tabindex="0" aria-label="Activer la protection audio">
                         <input type="checkbox" id="advancedAudio" hidden>
                     </div>
                 </div>
 
                 <div class="toggle-group" data-setting="advancedProtection.fonts">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🔤</div>
+                        <div class="toggle-icon" aria-hidden="true">🔤</div>
                         <div class="toggle-details">
                             <h4>Protection Fonts</h4>
                             <p>Limite la détection des polices installées</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="advancedProtection.fonts">
+                    <div class="toggle-switch" data-toggle="advancedProtection.fonts" role="switch" tabindex="0" aria-label="Activer la protection des polices">
                         <input type="checkbox" id="advancedFonts" hidden>
                     </div>
                 </div>
 
                 <div class="toggle-group" data-setting="advancedProtection.timezone">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🕐</div>
+                        <div class="toggle-icon" aria-hidden="true">🕐</div>
                         <div class="toggle-details">
                             <h4>Protection Timezone</h4>
                             <p>Falsifie les informations de fuseau horaire</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="advancedProtection.timezone">
+                    <div class="toggle-switch" data-toggle="advancedProtection.timezone" role="switch" tabindex="0" aria-label="Activer la protection du fuseau horaire">
                         <input type="checkbox" id="advancedTimezone" hidden>
                     </div>
                 </div>
 
                 <div class="toggle-group" data-setting="advancedProtection.experimental">
                     <div class="toggle-info">
-                        <div class="toggle-icon">🧪</div>
+                        <div class="toggle-icon" aria-hidden="true">🧪</div>
                         <div class="toggle-details">
                             <h4>Protection Expérimentale</h4>
                             <p>Masque les API expérimentales et sensibles</p>
                         </div>
                     </div>
-                    <div class="toggle-switch" data-toggle="advancedProtection.experimental">
+                    <div class="toggle-switch" data-toggle="advancedProtection.experimental" role="switch" tabindex="0" aria-label="Activer les protections expérimentales">
                         <input type="checkbox" id="advancedExperimental" hidden>
                     </div>
                 </div>
@@ -737,7 +739,14 @@ this.theme = 'light'; // Valeur par défaut temporaire
     }
 
     attachEventListeners() {
-        console.log('Attaching event listeners...');
+        // console.log('Attaching event listeners...');  // Retiré en production
+        
+        // Éviter les listeners multiples
+        if (this.eventListenersAttached) {
+            return;
+        }
+        this.eventListenersAttached = true;
+        
         const themeToggleButton = document.getElementById('themeToggle');
         if (themeToggleButton) {
             themeToggleButton.addEventListener('click', () => this.toggleTheme());
@@ -764,9 +773,19 @@ this.theme = 'light'; // Valeur par défaut temporaire
             input.addEventListener('change', (event) => this.handleInputChange(event.target));
             if (input.hidden && input.closest('.toggle-switch')) {
                 // For visually styled toggles where the checkbox is hidden
-                input.closest('.toggle-switch').addEventListener('click', () => {
+                const toggleSwitch = input.closest('.toggle-switch');
+                toggleSwitch.addEventListener('click', () => {
                     input.checked = !input.checked;
                     input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                
+                // Support clavier pour les toggles personnalisés
+                toggleSwitch.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        input.checked = !input.checked;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 });
             }
         });
@@ -796,11 +815,15 @@ this.theme = 'light'; // Valeur par défaut temporaire
     }
 
     applyTheme() {
+        if (!this.theme) return; // N'applique le thème que s'il est défini
+        
         document.body.setAttribute('data-theme', this.theme);
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
             themeToggle.textContent = this.theme === 'dark' ? '☀️' : '🌙';
             themeToggle.title = this.theme === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre';
+            // Amélioration accessibilité
+            themeToggle.setAttribute('aria-label', this.theme === 'dark' ? 'Basculer vers le thème clair' : 'Basculer vers le thème sombre');
         }
     }
 
@@ -828,8 +851,8 @@ this.theme = 'light'; // Valeur par défaut temporaire
             
             this.profiles = this.settings?.profiles || [];
             this.currentProfile = this.settings?.activeProfileId ? this.profiles.find(p => p.id === this.settings?.activeProfileId) : null;
-            // Utiliser le thème des paramètres centraux
-this.theme = this.settings?.theme || 'light';
+            // Utiliser le thème des paramètres centraux ou fallback
+            this.theme = this.settings?.theme || 'light';
 
             this.stats.totalProfiles = this.profiles.length;
             this.stats.activeProtections = this.countActiveProtections();
@@ -860,8 +883,13 @@ this.theme = this.settings?.theme || 'light';
                         element.checked = this.settings[key][subKey];
                         const toggleSwitch = element.closest('.toggle-switch');
                         if (toggleSwitch) {
-                            if (element.checked) toggleSwitch.classList.add('active');
-                            else toggleSwitch.classList.remove('active');
+                            if (element.checked) {
+                                toggleSwitch.classList.add('active');
+                                toggleSwitch.setAttribute('aria-checked', 'true');
+                            } else {
+                                toggleSwitch.classList.remove('active');
+                                toggleSwitch.setAttribute('aria-checked', 'false');
+                            }
                         }
                     }
                 }
@@ -872,8 +900,13 @@ this.theme = this.settings?.theme || 'light';
                         element.checked = this.settings[key];
                         const toggleSwitch = element.closest('.toggle-switch');
                         if (toggleSwitch) {
-                            if (element.checked) toggleSwitch.classList.add('active');
-                            else toggleSwitch.classList.remove('active');
+                            if (element.checked) {
+                                toggleSwitch.classList.add('active');
+                                toggleSwitch.setAttribute('aria-checked', 'true');
+                            } else {
+                                toggleSwitch.classList.remove('active');
+                                toggleSwitch.setAttribute('aria-checked', 'false');
+                            }
                         }
                     } else if (element.tagName === 'SELECT' || element.type === 'text' || element.type === 'number') {
                         element.value = this.settings[key];
@@ -898,7 +931,7 @@ this.theme = this.settings?.theme || 'light';
 
     startAutoSave() {
         if (this.autoSave) {
-            console.log("Auto-save enabled. Changes will be saved automatically via handleInputChange.");
+            // console.log("Auto-save enabled. Changes will be saved automatically via handleInputChange."); // Retiré en production
         }
     }
 
@@ -965,8 +998,8 @@ this.theme = this.settings?.theme || 'light';
             value = element.checked;
         } else if (element.type === 'number') {
             value = parseFloat(element.value);
-            if (isNaN(value)) { // Handle case where input might be empty or non-numeric
-                 value = element.min ? parseFloat(element.min) : 0; // Fallback to min or 0
+            if (isNaN(value)) {
+                value = element.min ? parseFloat(element.min) : 0;
             }
         } else {
             value = element.value;
@@ -984,12 +1017,13 @@ this.theme = this.settings?.theme || 'light';
              this.settings[key] = value;
         } else {
             console.warn(`Unknown setting key: ${key}`);
-            return; // Do not proceed if key is not recognized
+            return;
         }
 
         this.isDirty = true;
+        
         if (this.autoSave) {
-            this.saveData();
+            this.debouncedSave();
         } else {
             this.updateSaveStatus();
         }
@@ -998,10 +1032,24 @@ this.theme = this.settings?.theme || 'light';
             const toggleSwitch = element.closest('.toggle-switch');
             if (element.checked) {
                 toggleSwitch.classList.add('active');
+                toggleSwitch.setAttribute('aria-checked', 'true');
             } else {
                 toggleSwitch.classList.remove('active');
+                toggleSwitch.setAttribute('aria-checked', 'false');
             }
         }
+    }
+
+    debouncedSave() {
+        // Clear le timeout précédent s'il existe
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+        
+        // Programmer une sauvegarde dans 1 seconde
+        this.saveTimeout = setTimeout(() => {
+            this.saveData();
+        }, 1000);
     }
 
     async saveData() {
