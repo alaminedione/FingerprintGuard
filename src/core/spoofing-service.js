@@ -20,11 +20,133 @@ import {
   applyGhostMode 
 } from '../spoofing/spoofing-apply.js';
 
+import { ScriptInjector } from './script-injector.js';
+
 export class SpoofingService {
-  constructor(settingsManager, profileManager, scriptInjector) {
+  constructor(settingsManager, profileManager) {
     this.settingsManager = settingsManager;
     this.profileManager = profileManager;
-    this.scriptInjector = scriptInjector;
+    this.scriptInjector = null;
+    this.isInitialized = false;
+  }
+
+  /**
+   * Initialise le service de spoofing
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    try {
+      console.log('🔧 Initializing SpoofingService...');
+      
+      // Initialiser le ScriptInjector
+      this.scriptInjector = new ScriptInjector();
+      
+      this.isInitialized = true;
+      console.log('✅ SpoofingService initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing SpoofingService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gestionnaire de changement de paramètre
+   * @param {string} setting - Nom du paramètre
+   * @param {*} value - Nouvelle valeur
+   */
+  async onSettingChanged(setting, value) {
+    try {
+      console.log(`🔄 Setting changed: ${setting} = ${value}`);
+      
+      // Réagir aux changements spécifiques
+      if (setting === 'ghostMode' && value) {
+        // Appliquer le mode fantôme à tous les onglets ouverts
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          if (this.canSpoofUrl(tab.url)) {
+            await this.applyGhostMode(tab.id);
+          }
+        }
+      }
+      
+      // Autres réactions selon les paramètres...
+    } catch (error) {
+      console.error('❌ Error handling setting change:', error);
+    }
+  }
+
+  /**
+   * Réinitialise le service après un changement de configuration
+   */
+  async reinitialize() {
+    try {
+      console.log('🔄 Reinitializing SpoofingService...');
+      // Logique de réinitialisation si nécessaire
+      console.log('✅ SpoofingService reinitialized');
+    } catch (error) {
+      console.error('❌ Error reinitializing SpoofingService:', error);
+    }
+  }
+
+  /**
+   * Prépare la navigation
+   * @param {object} details - Détails de navigation
+   */
+  async prepareForNavigation(details) {
+    try {
+      console.log('🚀 Preparing for navigation:', details.url);
+      // Logique de préparation si nécessaire
+    } catch (error) {
+      console.error('❌ Error preparing for navigation:', error);
+    }
+  }
+
+  /**
+   * Gère la navigation
+   * @param {object} details - Détails de navigation
+   */
+  async handleNavigation(details) {
+    try {
+      if (!this.canSpoofUrl(details.url)) {
+        console.debug('⚠️ Cannot spoof URL:', details.url);
+        return;
+      }
+
+      console.log('🔄 Handling navigation for tab:', details.tabId);
+      await this.applyAllProtections(details.tabId, details.url);
+    } catch (error) {
+      console.error('❌ Error handling navigation:', error);
+    }
+  }
+
+  /**
+   * Traite une requête web
+   * @param {object} details - Détails de la requête
+   * @returns {object} Résultat du traitement
+   */
+  async processWebRequest(details) {
+    try {
+      // Logique de traitement des requêtes web
+      return { blocked: false };
+    } catch (error) {
+      console.error('❌ Error processing web request:', error);
+      return { blocked: false };
+    }
+  }
+
+  /**
+   * Applique le profil actuel
+   */
+  async applyCurrentProfile() {
+    try {
+      const currentProfile = this.profileManager.getCurrent();
+      if (currentProfile) {
+        console.log('✅ Applying current profile:', currentProfile.id);
+        // Logique d'application du profil
+      }
+    } catch (error) {
+      console.error('❌ Error applying current profile:', error);
+    }
   }
 
   /**

@@ -109,312 +109,331 @@ function generateBrowserAndPlatformInfo(config) {
 }
 
 /**
- * Génère des propriétés de navigateur falsifiées
+ * Génère les propriétés Navigator falsifiées
  * @param {object} config - Configuration de l'extension
- * @returns {object} Propriétés de navigateur falsifiées
+ * @returns {object} Propriétés Navigator falsifiées
  */
 export function getFakeNavigatorProperties(config) {
-  const browserInfo = generateBrowserAndPlatformInfo(config);
-  const { browserName, fullBrowserVersion, geckoVersion, selectedPlatform, basePlatformString } = browserInfo;
+  try {
+    const browserInfo = generateBrowserAndPlatformInfo(config);
+    const platformData = SPOOFING_DATA.platforms[browserInfo.selectedPlatform] || SPOOFING_DATA.platforms['Windows NT 10.0; Win64; x64'];
 
-  const language = config.language === 'random' 
-    ? getRandomElement(Object.keys(SPOOFING_DATA.languages)) 
-    : (config.language || getRandomElement(Object.keys(SPOOFING_DATA.languages)));
-  
-  const hardwareConcurrency = config.hardwareConcurrency || getRandomElement([2, 4, 8, 16]);
-  const deviceMemory = config.deviceMemory || getRandomElement([4, 8, 16, 32]);
+    // Générer les propriétés cohérentes
+    const hardwareConcurrency = config.hardwareConcurrency === 0 || config.hardwareConcurrency === 'random'
+      ? getRandomElement(platformData.hardwareConcurrency)
+      : config.hardwareConcurrency || getRandomElement(platformData.hardwareConcurrency);
 
-  const { userAgentString, vendorString, appNameString, appVersionString } = 
-    generateUserAgentStrings(browserInfo);
+    const deviceMemory = config.deviceMemory === 0 || config.deviceMemory === 'random'
+      ? getRandomElement(platformData.deviceMemory)
+      : config.deviceMemory || getRandomElement(platformData.deviceMemory);
 
-  const fakeNavigator = {
-    platform: basePlatformString,
-    userAgent: userAgentString,
-    language: language,
-    languages: SPOOFING_DATA.languages[language],
-    hardwareConcurrency: hardwareConcurrency,
-    deviceMemory: deviceMemory,
-    vendor: vendorString,
-    maxTouchPoints: selectedPlatform.includes('Windows') ? 0 : (selectedPlatform.includes('Linux') ? 0 : 5),
-    cookieEnabled: true,
-    doNotTrack: '1',
-    appName: appNameString,
-    appCodeName: 'Mozilla',
-    appVersion: appVersionString,
-    onLine: true,
-  };
+    const language = config.language === 'random'
+      ? getRandomElement(platformData.languages)
+      : config.language || getRandomElement(platformData.languages);
 
-  console.log('✅ Fake navigator properties generated:', fakeNavigator);
-  return fakeNavigator;
-}
+    const languages = [language, 'en'];
 
-/**
- * Génère les chaînes User-Agent selon le navigateur
- * @param {object} browserInfo - Informations sur le navigateur
- * @returns {object} Chaînes générées
- */
-function generateUserAgentStrings(browserInfo) {
-  const { 
-    browserName, 
-    fullBrowserVersion, 
-    geckoVersion, 
-    selectedPlatform, 
-    basePlatformString,
-    macPlatformForUA 
-  } = browserInfo;
-
-  let userAgentString, vendorString, appNameString = 'Netscape', appVersionString;
-
-  switch (browserName) {
-    case 'Firefox':
-      userAgentString = `Mozilla/5.0 (${selectedPlatform}; rv:${geckoVersion || fullBrowserVersion}) Gecko/20100101 Firefox/${fullBrowserVersion}`;
-      vendorString = '';
-      appVersionString = `5.0 (${basePlatformString})`;
-      break;
-      
-    case 'Safari':
-      userAgentString = `Mozilla/5.0 (${macPlatformForUA}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${fullBrowserVersion} Safari/605.1.15`;
-      vendorString = 'Apple Computer, Inc.';
-      appVersionString = `5.0 (${macPlatformForUA}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${fullBrowserVersion} Safari/605.1.15`;
-      break;
-      
-    case 'Edge':
-      userAgentString = `Mozilla/5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion.split('.')[0]}.0.0.0 Safari/537.36 Edg/${fullBrowserVersion}`;
-      vendorString = 'Google Inc.';
-      appVersionString = `5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion.split('.')[0]}.0.0.0 Safari/537.36 Edg/${fullBrowserVersion}`;
-      break;
-      
-    case 'Opera':
-      userAgentString = `Mozilla/5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion.split('.')[0]}.0.0.0 Safari/537.36 OPR/${fullBrowserVersion}`;
-      vendorString = 'Google Inc.';
-      appVersionString = `5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion.split('.')[0]}.0.0.0 Safari/537.36 OPR/${fullBrowserVersion}`;
-      break;
-      
-    case 'Chrome':
-    default:
-      userAgentString = `Mozilla/5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion} Safari/537.36`;
-      vendorString = 'Google Inc.';
-      appVersionString = `5.0 (${selectedPlatform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion} Safari/537.36`;
-      break;
+    return {
+      userAgent: generateUserAgent(browserInfo),
+      platform: getPlatformString(browserInfo.selectedPlatform),
+      language: language,
+      languages: languages,
+      hardwareConcurrency: hardwareConcurrency,
+      deviceMemory: deviceMemory,
+      vendor: getVendorString(browserInfo.browserName),
+      appVersion: getAppVersionString(browserInfo),
+      oscpu: getOsCpuString(browserInfo.selectedPlatform),
+      cookieEnabled: true,
+      onLine: true,
+      doNotTrack: getRandomElement([null, '1']),
+      maxTouchPoints: getMaxTouchPoints(browserInfo.selectedPlatform)
+    };
+  } catch (error) {
+    console.error('❌ Error generating Navigator properties:', error);
+    return {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      platform: 'Win32',
+      language: 'en-US',
+      languages: ['en-US', 'en'],
+      hardwareConcurrency: 4,
+      deviceMemory: 8,
+      vendor: 'Google Inc.',
+      appVersion: '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      oscpu: undefined,
+      cookieEnabled: true,
+      onLine: true,
+      doNotTrack: null,
+      maxTouchPoints: 0
+    };
   }
-
-  return { userAgentString, vendorString, appNameString, appVersionString };
 }
 
 /**
- * Génère des données User-Agent falsifiées
+ * Génère les données User-Agent falsifiées
  * @param {object} config - Configuration de l'extension
- * @param {string} browserName - Nom du navigateur
+ * @param {string} browser - Navigateur cible
  * @returns {object} Données User-Agent falsifiées
  */
-export function getFakeUserAgentData(config, browserName) {
-  const browserInfo = generateBrowserAndPlatformInfo(config);
-  const { fullBrowserVersion, baseUaPlatformString, browserName: generatedBrowserName } = browserInfo;
-
-  const platforms = {
-    'Windows': ['10.0.0', '10.0.19042', '10.0.22000', '10.0.22621'],
-    'macOS': ['10.15.7', '11.6.0', '12.0.1', '13.0.0'],
-    'Linux': ['5.15.0', '5.10.0', '6.0.0'],
-    'Android': ['10', '11', '12', '13'],
-    'iOS': ['14', '15', '16']
-  };
-
-  const platform = baseUaPlatformString;
-  const platformVersion = config.uaPlatformVersion === 'random'
-    ? (platforms[platform] ? getRandomElement(platforms[platform]) : `${getRandomInRange(6, 12)}.${getRandomInRange(0, 10)}.${getRandomInRange(0, 100)}`)
-    : config.uaPlatformVersion;
-
-  const architecture = config.uaArchitecture === 'random'
-    ? getRandomElement(["x86", "x64", "arm", "arm64"])
-    : config.uaArchitecture;
-
-  const bitness = config.uaBitness === 'random'
-    ? getRandomElement(["32", "64"])
-    : config.uaBitness;
-
-  const wow64 = config.uaWow64 === 'random'
-    ? getRandomElement([true, false])
-    : config.uaWow64;
-
-  const model = config.uaModel === 'random'
-    ? getRandomElement(["", "Pixel 7", "iPhone", "Samsung Galaxy S23"])
-    : config.uaModel;
-
-  const uaFullVersion = config.uaFullVersion === 'random'
-    ? fullBrowserVersion
-    : config.uaFullVersion;
-
-  const brands = [
-    { brand: generatedBrowserName, version: uaFullVersion.split('.')[0] },
-    { brand: "Not A;Brand", version: generateBrowserVersion(8, 20).split('.')[0] },
-    { brand: "Chromium", version: fullBrowserVersion.split('.')[0] }
-  ];
-
-  const fakeUserAgentData = {
-    brands,
-    mobile: model !== '',
-    platform,
-    platformVersion,
-    architecture,
-    bitness,
-    wow64,
-    model,
-    uaFullVersion,
-    fullVersionList: [
-      { brand: generatedBrowserName, version: uaFullVersion },
-      { brand: "Not A;Brand", version: generateBrowserVersion(8, 20) },
-      { brand: "Chromium", version: fullBrowserVersion }
-    ],
-  };
-
-  console.log('✅ Fake UserAgentData generated:', fakeUserAgentData);
-  return fakeUserAgentData;
+export function getFakeUserAgentData(config, browser) {
+  try {
+    const browserInfo = generateBrowserAndPlatformInfo({ ...config, browser });
+    
+    const brands = generateBrands(browserInfo.browserName, browserInfo.majorVersion);
+    const mobile = browserInfo.selectedPlatform.includes('Mobile') || browserInfo.selectedPlatform.includes('Android');
+    
+    return {
+      brands: brands,
+      mobile: mobile,
+      platform: getPlatformForUA(browserInfo.selectedPlatform),
+      architecture: getArchitecture(browserInfo.selectedPlatform),
+      bitness: getBitness(browserInfo.selectedPlatform),
+      model: '',
+      platformVersion: getPlatformVersion(browserInfo.selectedPlatform),
+      uaFullVersion: browserInfo.fullBrowserVersion,
+      fullVersionList: generateFullVersionList(browserInfo.browserName, browserInfo.fullBrowserVersion),
+      wow64: browserInfo.selectedPlatform.includes('WOW64')
+    };
+  } catch (error) {
+    console.error('❌ Error generating User-Agent data:', error);
+    return {
+      brands: [{ brand: 'Google Chrome', version: '120' }],
+      mobile: false,
+      platform: 'Windows',
+      architecture: 'x86',
+      bitness: '64',
+      model: '',
+      platformVersion: '10.0.0',
+      uaFullVersion: '120.0.0.0',
+      fullVersionList: [{ brand: 'Google Chrome', version: '120.0.0.0' }],
+      wow64: false
+    };
+  }
 }
 
 /**
- * Génère des propriétés d'écran falsifiées
- * @param {object} config - Configuration de l'extension  
+ * Génère la chaîne User-Agent falsifiée
+ * @param {object} config - Configuration de l'extension
+ * @returns {string} Chaîne User-Agent falsifiée
+ */
+export function getFakeUserAgent(config) {
+  try {
+    const browserInfo = generateBrowserAndPlatformInfo(config);
+    return generateUserAgent(browserInfo);
+  } catch (error) {
+    console.error('❌ Error generating User-Agent:', error);
+    return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  }
+}
+
+/**
+ * Génère les propriétés d'écran falsifiées
+ * @param {object} config - Configuration de l'extension
  * @returns {object} Propriétés d'écran falsifiées
  */
 export function getFakeScreenProperties(config) {
-  // Déterminer le type d'appareil
-  let deviceType = config.spoofDeviceType === 'random' 
-    ? getRandomElement(['desktop', 'mobile', 'tablet'])
-    : config.spoofDeviceType;
+  try {
+    let resolution;
+    
+    if (config.spoofScreenResolution === 'random' || !config.spoofScreenResolution) {
+      resolution = getRandomElement(SPOOFING_DATA.screenResolutions);
+    } else {
+      const customRes = config.spoofScreenResolution.split('x');
+      if (customRes.length === 2) {
+        resolution = {
+          width: parseInt(customRes[0]),
+          height: parseInt(customRes[1])
+        };
+      } else {
+        resolution = getRandomElement(SPOOFING_DATA.screenResolutions);
+      }
+    }
 
-  // Fallback si le type n'est pas reconnu
-  if (!SPOOFING_DATA.screenResolutions[deviceType]) {
-    deviceType = 'desktop';
+    const devicePixelRatio = config.spoofDevicePixelRatio === 'random'
+      ? getRandomElement(SPOOFING_DATA.devicePixelRatios)
+      : parseFloat(config.spoofDevicePixelRatio) || 1;
+
+    const availHeight = resolution.height - getRandomInRange(40, 80); // Taskbar height
+    const availWidth = resolution.width;
+
+    return {
+      width: resolution.width,
+      height: resolution.height,
+      availWidth: availWidth,
+      availHeight: availHeight,
+      colorDepth: 24,
+      pixelDepth: 24,
+      devicePixelRatio: devicePixelRatio
+    };
+  } catch (error) {
+    console.error('❌ Error generating screen properties:', error);
+    return {
+      width: 1920,
+      height: 1080,
+      availWidth: 1920,
+      availHeight: 1040,
+      colorDepth: 24,
+      pixelDepth: 24,
+      devicePixelRatio: 1
+    };
   }
-
-  // Sélectionner une résolution
-  const resolution = config.spoofScreenResolution === 'random'
-    ? getRandomElement(SPOOFING_DATA.screenResolutions[deviceType])
-    : JSON.parse(config.spoofScreenResolution || '{"width": 1920, "height": 1080, "ratio": 1}');
-
-  // Déterminer le ratio de pixels
-  const devicePixelRatio = config.spoofDevicePixelRatio === 'random'
-    ? resolution.ratio || getRandomElement([1, 1.25, 1.5, 2, 2.5, 3])
-    : parseFloat(config.spoofDevicePixelRatio) || 1;
-
-  const fakeScreen = {
-    width: resolution.width,
-    height: resolution.height,
-    availWidth: resolution.width,
-    availHeight: resolution.height - (deviceType === 'desktop' ? 40 : 0), // Barre des tâches
-    colorDepth: 24,
-    pixelDepth: 24,
-    devicePixelRatio
-  };
-
-  console.log('✅ Fake screen properties generated:', fakeScreen);
-  return fakeScreen;
 }
 
 /**
- * Génère des règles de modification des en-têtes HTTP
+ * Génère de nouvelles règles de modification des en-têtes HTTP
  * @param {object} config - Configuration de l'extension
  * @param {number} ruleId - ID de la règle
- * @returns {Array} Règles de modification des en-têtes
+ * @returns {Array} Règles de modification
  */
-export function getNewRules(config, ruleId) {
-  const browserInfo = generateBrowserAndPlatformInfo(config);
-  const { browserName, fullBrowserVersion, geckoVersion, selectedUaPlatform, secChUaPlatformValue } = browserInfo;
-
-  const { userAgentString } = generateUserAgentStrings(browserInfo);
-  const brands = generateBrandsForHeaders(browserName, fullBrowserVersion, geckoVersion);
-
-  const secChUaValue = config.secChUa === 'random'
-    ? brands.map(b => `"${b.brand}";v="${b.version}"`).join(', ')
-    : config.secChUa;
-
-  const secChUaFullVersionListValue = config.secChUaFullVersionList === 'random'
-    ? brands.map(b => `"${b.brand}";v="${b.brand === "Not A;Brand" ? b.version : fullBrowserVersion}"`).join(', ')
-    : config.secChUaFullVersionList;
-
-  const headers = [
-    { header: "User-Agent", operation: "set", value: userAgentString },
-    { header: "sec-ch-ua", operation: "set", value: secChUaValue },
-    { header: "sec-ch-ua-mobile", operation: "set", value: config.secChUaMobile === 'random' ? "?0" : config.secChUaMobile },
-    { header: "sec-ch-ua-platform", operation: "set", value: config.secChUaPlatform === 'random' ? secChUaPlatformValue : config.secChUaPlatform },
-    { header: "sec-ch-ua-full-version", operation: "set", value: config.secChUaFullVersion === 'random' ? `"${fullBrowserVersion}"` : config.secChUaFullVersion },
-    { header: "sec-ch-ua-platform-version", operation: "set", value: config.secChUaPlatformVersion === 'random' ? `"${getRandomInRange(10, 15)}.0.0"` : config.secChUaPlatformVersion },
-    { header: "Device-Memory", operation: "set", value: config.hDeviceMemory === 0 ? String(getRandomElement([4, 8, 16])) : String(config.hDeviceMemory) },
-    { header: "Referer", operation: "set", value: config.referer || "" },
-    { header: "sec-ch-ua-full-version-list", operation: "set", value: secChUaFullVersionListValue }
-  ];
-
-  return [{
-    id: ruleId,
-    priority: 10,
-    action: { type: "modifyHeaders", requestHeaders: headers },
-    condition: {
-      urlFilter: "*",
-      resourceTypes: ["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "xmlhttprequest"],
-    },
-  }];
-}
-
-/**
- * Génère les brands pour les en-têtes Client Hints
- * @param {string} browserName - Nom du navigateur
- * @param {string} fullBrowserVersion - Version complète
- * @param {string} geckoVersion - Version Gecko (pour Firefox)
- * @returns {Array} Liste des brands
- */
-function generateBrandsForHeaders(browserName, fullBrowserVersion, geckoVersion) {
-  switch (browserName) {
-    case 'Firefox':
-      return [
-        { brand: "Firefox", version: fullBrowserVersion.split('.')[0] },
-        { brand: "Not A;Brand", version: "99" },
-        { brand: "Gecko", version: geckoVersion ? geckoVersion.split('.')[0] : fullBrowserVersion.split('.')[0] }
-      ];
-      
-    case 'Safari':
-      return [
-        { brand: "Safari", version: fullBrowserVersion.split('.')[0] },
-        { brand: "Not A;Brand", version: "99" },
-        { brand: "AppleWebKit", version: "605" }
-      ];
-      
-    case 'Edge':
-      return [
-        { brand: "Microsoft Edge", version: fullBrowserVersion.split('.')[0] },
-        { brand: "Not A;Brand", version: "99" },
-        { brand: "Chromium", version: fullBrowserVersion.split('.')[0] }
-      ];
-      
-    case 'Opera':
-      return [
-        { brand: "Opera", version: fullBrowserVersion.split('.')[0] },
-        { brand: "Not A;Brand", version: "99" },
-        { brand: "Chromium", version: fullBrowserVersion.split('.')[0] }
-      ];
-      
-    case 'Chrome':
-    default:
-      return [
-        { brand: "Google Chrome", version: fullBrowserVersion.split('.')[0] },
-        { brand: "Not A;Brand", version: "99" },
-        { brand: "Chromium", version: fullBrowserVersion.split('.')[0] }
-      ];
+export function getNewRules(config, ruleId = 1) {
+  try {
+    const browserInfo = generateBrowserAndPlatformInfo(config);
+    const userAgent = generateUserAgent(browserInfo);
+    
+    return [{
+      id: ruleId,
+      priority: 1,
+      action: {
+        type: "modifyHeaders",
+        requestHeaders: [
+          { header: "User-Agent", operation: "set", value: userAgent },
+          { header: "Sec-CH-UA", operation: "set", value: generateSecChUa(browserInfo) },
+          { header: "Sec-CH-UA-Mobile", operation: "set", value: "?0" },
+          { header: "Sec-CH-UA-Platform", operation: "set", value: browserInfo.secChUaPlatformValue },
+          { header: "Accept-Language", operation: "set", value: getAcceptLanguage(config.language) }
+        ]
+      },
+      condition: {
+        urlFilter: "*",
+        resourceTypes: [
+          "main_frame", "sub_frame", "stylesheet", "script", "image", 
+          "font", "object", "xmlhttprequest", "ping", "csp_report", 
+          "media", "websocket", "other"
+        ]
+      }
+    }];
+  } catch (error) {
+    console.error('❌ Error generating rules:', error);
+    return [];
   }
 }
 
-/**
- * Génère un faux User-Agent simple
- * @param {object} config - Configuration de l'extension
- * @returns {object} Objet contenant User-Agent, platform et appVersion
- */
-export function getFakeUserAgent(config) {
-  const browserInfo = generateBrowserAndPlatformInfo(config);
-  const { basePlatformString } = browserInfo;
-  const { userAgentString, appVersionString } = generateUserAgentStrings(browserInfo);
+// Fonctions utilitaires
 
-  return {
-    userAgent: userAgentString,
-    platform: basePlatformString,
-    appVersion: appVersionString
-  };
+function generateUserAgent(browserInfo) {
+  const { browserName, fullBrowserVersion, macPlatformForUA } = browserInfo;
+  
+  switch (browserName) {
+    case 'Chrome':
+      return `Mozilla/5.0 (${macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion} Safari/537.36`;
+    case 'Firefox':
+      return `Mozilla/5.0 (${macPlatformForUA}; rv:${fullBrowserVersion}) Gecko/20100101 Firefox/${fullBrowserVersion}`;
+    case 'Safari':
+      return `Mozilla/5.0 (${macPlatformForUA}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${fullBrowserVersion} Safari/605.1.15`;
+    case 'Edge':
+      return `Mozilla/5.0 (${macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion} Safari/537.36 Edg/${fullBrowserVersion}`;
+    case 'Opera':
+      return `Mozilla/5.0 (${macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion} Safari/537.36 OPR/${fullBrowserVersion}`;
+    default:
+      return `Mozilla/5.0 (${macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullBrowserVersion} Safari/537.36`;
+  }
+}
+
+function getPlatformString(platform) {
+  if (platform.includes('Windows')) return 'Win32';
+  if (platform.includes('Macintosh')) return 'MacIntel';
+  if (platform.includes('Linux')) return 'Linux x86_64';
+  return 'Unknown';
+}
+
+function getVendorString(browserName) {
+  switch (browserName) {
+    case 'Chrome':
+    case 'Edge':
+    case 'Opera':
+      return 'Google Inc.';
+    case 'Firefox':
+      return '';
+    case 'Safari':
+      return 'Apple Computer, Inc.';
+    default:
+      return 'Google Inc.';
+  }
+}
+
+function getAppVersionString(browserInfo) {
+  return `5.0 (${browserInfo.macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserInfo.fullBrowserVersion} Safari/537.36`;
+}
+
+function getOsCpuString(platform) {
+  if (platform.includes('Windows')) return platform;
+  return undefined;
+}
+
+function getMaxTouchPoints(platform) {
+  return platform.includes('Mobile') || platform.includes('Android') ? getRandomInRange(1, 10) : 0;
+}
+
+function getPlatformForUA(platform) {
+  if (platform.includes('Windows')) return 'Windows';
+  if (platform.includes('Macintosh')) return 'macOS';
+  if (platform.includes('Linux')) return 'Linux';
+  return 'Unknown';
+}
+
+function getArchitecture(platform) {
+  if (platform.includes('x64') || platform.includes('x86_64')) return 'x86';
+  if (platform.includes('ARM')) return 'arm';
+  return 'x86';
+}
+
+function getBitness(platform) {
+  if (platform.includes('x64') || platform.includes('64')) return '64';
+  return '32';
+}
+
+function getPlatformVersion(platform) {
+  if (platform.includes('Windows NT 10.0')) return '10.0.0';
+  if (platform.includes('Mac OS X 10_15')) return '10.15.7';
+  if (platform.includes('Linux')) return '';
+  return '10.0.0';
+}
+
+function generateBrands(browserName, majorVersion) {
+  const brands = [];
+  
+  switch (browserName) {
+    case 'Chrome':
+      brands.push({ brand: 'Google Chrome', version: majorVersion.toString() });
+      brands.push({ brand: 'Chromium', version: majorVersion.toString() });
+      break;
+    case 'Edge':
+      brands.push({ brand: 'Microsoft Edge', version: majorVersion.toString() });
+      brands.push({ brand: 'Chromium', version: majorVersion.toString() });
+      break;
+    case 'Opera':
+      brands.push({ brand: 'Opera', version: majorVersion.toString() });
+      brands.push({ brand: 'Chromium', version: majorVersion.toString() });
+      break;
+    default:
+      brands.push({ brand: 'Google Chrome', version: majorVersion.toString() });
+      break;
+  }
+  
+  brands.push({ brand: 'Not_A Brand', version: '8' });
+  return brands;
+}
+
+function generateFullVersionList(browserName, fullVersion) {
+  const brands = generateBrands(browserName, parseInt(fullVersion.split('.')[0]));
+  return brands.map(brand => ({ brand: brand.brand, version: fullVersion }));
+}
+
+function generateSecChUa(browserInfo) {
+  const brands = generateBrands(browserInfo.browserName, browserInfo.majorVersion);
+  return brands.map(brand => `"${brand.brand}";v="${brand.version}"`).join(', ');
+}
+
+function getAcceptLanguage(language) {
+  const lang = language || 'en-US';
+  return `${lang},${lang.split('-')[0]};q=0.9`;
 }

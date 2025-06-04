@@ -3,6 +3,12 @@
  * Version simplifiée pour diagnostiquer les erreurs de registration
  */
 
+// Static imports at the top
+import { SettingsManager } from './core/settings-manager.js';
+import { ProfileManager } from './core/profile-manager.js';
+import { ScriptInjector } from './core/script-injector.js';
+import { SpoofingService } from './core/spoofing-service.js';
+
 console.log('🚀 FingerprintGuard Service Worker loading...');
 
 // Test basique de fonctionnement
@@ -34,12 +40,6 @@ let fingerprintGuard = null;
 async function initializeFull() {
   try {
     console.log('📦 Loading full FingerprintGuard modules...');
-    
-    // Import des modules seulement quand nécessaire
-    const { SettingsManager } = await import('./core/settings-manager.js');
-    const { ProfileManager } = await import('./core/profile-manager.js');
-    const { ScriptInjector } = await import('./core/script-injector.js');
-    const { SpoofingService } = await import('./core/spoofing-service.js');
     
     // Classe principale simplifiée
     class FingerprintGuardLite {

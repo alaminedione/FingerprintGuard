@@ -221,6 +221,40 @@ export class ScriptInjector {
   }
 
   /**
+   * Injecte tous les scripts nécessaires dans un onglet
+   * @param {number} tabId - ID de l'onglet
+   * @param {string} url - URL de l'onglet
+   * @returns {Promise<boolean>} Succès de l'injection
+   */
+  async injectScripts(tabId, url) {
+    try {
+      if (!this.validateTabId(tabId) || !this.isInjectableUrl(url)) {
+        console.warn(`⚠️ Cannot inject scripts into tab ${tabId}: ${url}`);
+        return false;
+      }
+
+      console.log(`💉 Injecting protection scripts into tab ${tabId}`);
+
+      // Injecter le script de protection avancée
+      const advancedProtectionSuccess = await this.inject(tabId, 'advanced-protection.js');
+      
+      // Injecter le script de protection WebRTC
+      const webrtcSuccess = await this.inject(tabId, 'spoofer/webrtc-protection.js');
+      
+      // Injecter le script de spoofing Canvas
+      const canvasSuccess = await this.inject(tabId, 'spoofer/spoof-canvas.js');
+
+      const successCount = [advancedProtectionSuccess, webrtcSuccess, canvasSuccess].filter(Boolean).length;
+      console.log(`✅ Injected ${successCount}/3 protection scripts into tab ${tabId}`);
+      
+      return successCount > 0;
+    } catch (error) {
+      console.error(`❌ Error injecting scripts into tab ${tabId}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Retourne des statistiques sur l'injecteur
    * @returns {object}
    */
