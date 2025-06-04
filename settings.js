@@ -8,7 +8,8 @@ class FingerprintGuardSettings {
         this.settings = {};
         this.profiles = [];
         this.currentProfile = null;
-        this.theme = localStorage.getItem('fpg-theme') || 'light';
+        // Récupération du thème depuis les paramètres centraux
+this.theme = 'light'; // Valeur par défaut temporaire
         this.isLoading = false;
         this.isDirty = false;
         this.autoSave = true;
@@ -795,7 +796,7 @@ class FingerprintGuardSettings {
     }
 
     applyTheme() {
-        document.body.className = this.theme;
+        document.body.setAttribute('data-theme', this.theme);
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
             themeToggle.textContent = this.theme === 'dark' ? '☀️' : '🌙';
@@ -827,7 +828,8 @@ class FingerprintGuardSettings {
             
             this.profiles = this.settings?.profiles || [];
             this.currentProfile = this.settings?.activeProfileId ? this.profiles.find(p => p.id === this.settings?.activeProfileId) : null;
-            this.theme = localStorage.getItem('fpg-theme') || 'light';
+            // Utiliser le thème des paramètres centraux
+this.theme = this.settings?.theme || 'light';
 
             this.stats.totalProfiles = this.profiles.length;
             this.stats.activeProtections = this.countActiveProtections();
@@ -917,10 +919,40 @@ class FingerprintGuardSettings {
         }
     }
 
-    toggleTheme() {
-        this.theme = this.theme === 'light' ? 'dark' : 'light';
-        localStorage.setItem('fpg-theme', this.theme);
-        this.applyTheme();
+    async toggleTheme() {
+        try {
+            const newTheme = this.theme === 'light' ? 'dark' : 'light';
+            this.theme = newTheme;
+            this.applyTheme();
+            
+            // Mettre à jour le paramètre dans chrome.storage via le gestionnaire centralisé
+            this.settings.theme = newTheme;
+            this.isDirty = true;
+            
+            // Envoyer la mise à jour au background script
+            const response = await chrome.runtime.sendMessage({
+                type: 'updateSetting',
+                setting: 'theme',
+                value: newTheme
+            });
+
+            if (response?.success) {
+                const action = newTheme === 'light' ? 'clair' : 'sombre';
+                this.showNotification(`Thème ${action} activé`, 'success');
+                
+                if (this.autoSave) {
+                    await this.saveData();
+                }
+            } else {
+                throw new Error(response?.error || 'Échec de la mise à jour du thème');
+            }
+        } catch (error) {
+            console.error('Error toggling theme:', error);
+            this.showNotification('Erreur de changement de thème', 'error');
+            // Revenir au thème précédent en cas d'erreur
+            this.theme = this.theme === 'light' ? 'dark' : 'light';
+            this.applyTheme();
+        }
     }
     
     handleInputChange(element) {

@@ -1,26 +1,22 @@
+/* Modern Popup Styles for FingerprintGuard v2.1.0 
+   Enhanced theme support with consistent dark mode */
+
 body {
   width: 300px;
   margin: 0;
   padding: 15px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, sans-serif;
-  background: #121212; /* Couleur de fond sombre */
-  color: #e0e0e0; /* Texte clair pour le contraste */
-  transition:
-    background 0.3s,
-    color 0.3s; /* Transition douce pour le thème */
+  background: var(--bg-secondary, #f7fafc);
+  color: var(--text-primary, #2d3748);
+  transition: background 0.3s ease, color 0.3s ease;
 }
-/* body { */
-/*   width: 300px; */
-/*   margin: 0; */
-/*   padding: 15px; */
-/*   font-family: */
-/*     system-ui, */
-/*     -apple-system, */
-/*     sans-serif; */
-/*   background: #1a1b1e; */
-/*   color: #fff; */
-/* } */
+
+/* Dark theme variables are handled through CSS variables in popup.html */
+[data-theme="dark"] body {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
 
 #loading {
   position: fixed;
@@ -28,7 +24,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a1b1e;
+  background: var(--bg-primary, #ffffff);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -38,8 +34,8 @@ body {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #ffffff3d;
-  border-top: 3px solid #fff;
+  border: 3px solid var(--border-color, #e2e8f0);
+  border-top: 3px solid var(--primary-color, #667eea);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -54,13 +50,14 @@ body {
   justify-content: space-between;
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #ffffff1a;
+  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1));
 }
 
 .header h1 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 #ghostModeIcon {
@@ -100,20 +97,21 @@ body {
   margin-left: 5px;
   width: 16px;
   height: 16px;
-  background: #ffffff1a;
+  background: var(--bg-tertiary, rgba(255,255,255,0.1));
   border-radius: 50%;
   text-align: center;
   line-height: 16px;
   font-size: 12px;
   cursor: help;
+  color: var(--text-secondary);
 }
 
 .tooltip-text {
   visibility: hidden;
   position: absolute;
   width: 200px;
-  background-color: #333;
-  color: #fff;
+  background-color: var(--bg-secondary, #333);
+  color: var(--text-primary, #fff);
   text-align: center;
   padding: 5px;
   border-radius: 6px;
@@ -148,9 +146,9 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ffffff3d; /* Couleur de fond par défaut */
+  background-color: var(--border-color, rgba(255,255,255,0.2));
   transition: background-color 0.4s;
-  border-radius: 20px; /* Arrondir les bords */
+  border-radius: 20px;
 }
 
 .slider span:before {
@@ -160,13 +158,13 @@ body {
   width: 16px;
   left: 2px;
   bottom: 2px;
-  background-color: #d3d3d3;
-  border-radius: 50%; /* Arrondir le cercle */
+  background-color: var(--bg-primary, #ffffff);
+  border-radius: 50%;
   transition: transform 0.4s;
 }
 
 input:checked + span {
-  background-color: #4caf50; /* Couleur de fond lorsqu'il est actif */
+  background-color: var(--success-color, #4caf50);
 }
 
 input:checked + span:before {
@@ -182,23 +180,23 @@ input:checked + span:before {
 }
 
 .status.active {
-  background: #4caf50;
+  background: var(--success-color, #4caf50);
   color: white;
 }
 
 .status.inactive {
-  background: #f443361f;
-  color: #ff5722;
+  background: var(--danger-color, rgba(244, 67, 54, 0.1));
+  color: var(--danger-color, #ff5722);
 }
 
 button {
   width: 100%;
   padding: 10px;
   margin-top: 15px;
-  background: #ffffff1a;
+  background: var(--bg-tertiary, rgba(255,255,255,0.1));
   border: none;
   border-radius: 5px;
-  color: white;
+  color: var(--text-primary, white);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -208,7 +206,7 @@ button {
 }
 
 button:hover {
-  background: #ffffff33;
+  background: var(--bg-secondary, rgba(255,255,255,0.2));
 }
 
 button svg {
@@ -233,11 +231,9 @@ button svg {
   border: none;
   padding: 8px;
   cursor: pointer;
-  color: white;
+  color: var(--text-primary, white);
   opacity: 0.9;
-  transition:
-    opacity 0.3s,
-    transform 0.3s;
+  transition: opacity 0.3s, transform 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -247,7 +243,7 @@ button svg {
 .settings-button:hover {
   opacity: 1;
   transform: rotate(30deg);
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--bg-tertiary, rgba(255, 255, 255, 0.1));
 }
 
 .settings-button:active {

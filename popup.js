@@ -4,552 +4,341 @@
  */
 
 class FingerprintGuardPopup {
-    constructor() {
-        this.settings = {};
-        this.stats = {
-            activeProtections: 0,
-            blockedRequests: 0,
-            spoofedData: 0
-        };
-        this.theme = localStorage.getItem('fpg-theme') || 'light';
-        this.isLoading = false;
-        this.notificationQueue = [];
-        
-        this.settingsMappings = {
-            'ghostMode': 'ghostMode',
-            'spoofBrowser': 'spoofBrowser',
-            'spoofCanvas': 'spoofCanvas',
-            'spoofScreen': 'spoofScreen',
-            'blockImages': 'blockImages',
-            'blockJS': 'blockJS'
-        };
+  constructor() {
+    this.settings = {};
+    this.stats = {
+      activeProtections: 0,
+      blockedRequests: 0,
+      spoofedData: 0
+    };
+    this.theme = 'light'; // Valeur par défaut temporaire
+    this.isLoading = false;
+    this.notificationQueue = [];
+    
+    this.settingsMappings = {
+      'ghostMode': 'ghostMode',
+      'spoofBrowser': 'spoofBrowser',
+      'spoofCanvas': 'spoofCanvas',
+      'spoofScreen': 'spoofScreen',
+      'blockImages': 'blockImages',
+      'blockJS': 'blockJS'
+    };
 
-        if (!this.initializeElements()) {
-            console.error("❌ Failed to initialize popup elements");
-            return;
-        }
-        this.attachEventListeners();
+    if (!this.initializeElements()) {
+      console.error("❌ Failed to initialize popup elements");
+      return;
+    }
+    this.attachEventListeners();
+    this.applyTheme();
+    this.loadSettings();
+  }
+
+  initializeElements() {
+    this.themeToggle = document.getElementById('themeToggle');
+    this.statusIcon = document.getElementById('statusIcon');
+    this.statusText = document.getElementById('statusText');
+    this.loadingOverlay = document.getElementById('loading');
+    this.ghostModeIcon = document.getElementById('ghostModeIcon');
+    this.reloadButton = document.getElementById('reloadAllTabs');
+    this.settingsButton = document.getElementById('openSettings');
+    this.notification = document.getElementById('notification');
+    this.notificationText = document.getElementById('notificationText');
+    
+    // Statistics elements
+    this.activeProtectionsEl = document.getElementById('activeProtections');
+    this.blockedRequestsEl = document.getElementById('blockedRequests');
+    this.spoofedDataEl = document.getElementById('spoofedData');
+    
+    return this.themeToggle && this.statusIcon && this.statusText && this.loadingOverlay;
+  }
+
+  attachEventListeners() {
+    if (this.themeToggle) {
+      this.themeToggle.addEventListener('click', () => this.toggleTheme());
+    }
+
+    if (this.reloadButton) {
+      this.reloadButton.addEventListener('click', () => this.reloadAllTabs());
+    }
+
+    if (this.settingsButton) {
+      this.settingsButton.addEventListener('click', () => this.openSettings());
+    }
+
+    // Toggle switches
+    document.querySelectorAll('.toggle-switch').forEach(toggle => {
+      toggle.addEventListener('click', () => this.handleToggleClick(toggle));
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.container')) {
+        window.close();
+      }
+    });
+  }
+
+  async loadSettings() {
+    try {
+      this.showLoading(true);
+      
+      const response = await this.sendMessage({ type: 'getStatus' });
+      
+      if (response?.success) {
+        this.settings = response.data;
+        
+        // Récupération du thème centralisé
+        this.theme = this.settings.theme || 'light';
         this.applyTheme();
-        this.loadSettings();
+        
+        this.updateInterface();
+        this.updateStats();
+        this.showNotification('Paramètres chargés avec succès', 'success');
+      } else {
+        throw new Error(response?.error || 'Failed to load settings');
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      this.showNotification('Erreur lors du chargement', 'error');
+      this.showError();
+    } finally {
+      this.showLoading(false);
     }
+  }
 
-    initializeElements() {
-        // Main elements
-        this.loadingOverlay = document.getElementById('loading');
-        this.statusCard = document.getElementById('status');
-        this.statusText = document.getElementById('statusText');
-        this.statusIcon = document.getElementById('statusIcon');
-        this.ghostModeIcon = document.getElementById('ghostModeIcon');
-        this.normalControls = document.getElementById('normalControls');
-        
-        // Theme toggle
-        this.themeToggle = document.getElementById('themeToggle');
-        
-        // Action buttons
-        this.reloadButton = document.getElementById('reloadAllTabs');
-        this.settingsButton = document.getElementById('openSettings');
-        
-        // Stats elements
-        this.activeProtectionsEl = document.getElementById('activeProtections');
-        this.blockedRequestsEl = document.getElementById('blockedRequests');
-        this.spoofedDataEl = document.getElementById('spoofedData');
-        
-        // Notification
-        this.notification = document.getElementById('notification');
-        this.notificationText = document.getElementById('notificationText');
+  async toggleTheme() {
+    try {
+      // Basculer le thème
+      const newTheme = this.theme === 'light' ? 'dark' : 'light';
+      
+      // Mettre à jour le thème localement
+      this.theme = newTheme;
+      this.applyTheme();
+      
+      // Envoyer la mise à jour au background
+      const response = await this.sendMessage({
+        type: 'updateSetting',
+        setting: 'theme',
+        value: newTheme
+      });
+      
+      if (response?.success) {
+        const action = newTheme === 'light' ? 'clair' : 'sombre';
+        this.showNotification(`Thème ${action} activé`, 'success');
+      } else {
+        throw new Error(response?.error || 'Theme update failed');
+      }
+    } catch (error) {
+      console.error('Error toggling theme:', error);
+      this.showNotification('Erreur de changement de thème', 'error');
+    }
+  }
 
-        // Vérification de sécurité pour les éléments critiques
-        const criticalElements = ['statusText', 'statusIcon', 'notification', 'notificationText'];
-        for (const elementId of criticalElements) {
-            if (!this[elementId]) {
-                console.error(`❌ Critical element not found: ${elementId}`);
-                this.showError();
-                return false;
-            }
+  applyTheme() {
+    document.body.setAttribute('data-theme', this.theme);
+    const emoji = this.theme === 'light' ? '🌙' : '☀️';
+    
+    if (this.themeToggle) {
+      this.themeToggle.textContent = emoji;
+      this.themeToggle.title = this.theme === 'light' 
+        ? 'Passer au thème sombre' 
+        : 'Passer au thème clair';
+    }
+  }
+
+  updateInterface() {
+    // Update status
+    const isGhostMode = this.settings.ghostMode;
+    const isActive = Object.values(this.settings).some(val => val === true);
+    
+    if (isGhostMode) {
+      this.showGhostMode();
+    } else {
+      this.hideGhostMode();
+      this.updateNormalInterface(isActive);
+    }
+    
+    // Update toggle switches
+    for (const [key, settingKey] of Object.entries(this.settingsMappings)) {
+      const toggle = document.querySelector(`[data-toggle="${key}"]`);
+      const isEnabled = this.settings[settingKey];
+      
+      if (toggle) {
+        if (isEnabled) {
+          toggle.classList.add('active');
+        } else {
+          toggle.classList.remove('active');
         }
-        return true;
         
-        // Toggle switches
-        this.toggleSwitches = document.querySelectorAll('.toggle-switch');
-    }
-
-    attachEventListeners() {
-        // Theme toggle
-        this.themeToggle.addEventListener('click', () => this.toggleTheme());
-        
-        // Toggle switches
-        this.toggleSwitches.forEach(toggle => {
-            toggle.addEventListener('click', (e) => this.handleToggleClick(e));
-        });
-        
-        // Action buttons
-        this.reloadButton.addEventListener('click', () => this.reloadAllTabs());
-        this.settingsButton.addEventListener('click', () => this.openSettings());
-        
-        // Additional links
-        document.getElementById('aboutLink')?.addEventListener('click', () => this.showAbout());
-        document.getElementById('helpLink')?.addEventListener('click', () => this.showHelp());
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleKeyboard(e));
-        
-        // Auto-update stats
-        setInterval(() => this.updateStats(), 5000);
-    }
-
-    async loadSettings() {
-        try {
-            this.showLoading(true);
-            
-            const response = await this.sendMessage({ type: 'getStatus' });
-            
-            if (response?.success) {
-                this.settings = response.data;
-                this.updateInterface();
-                this.updateStats();
-                this.showNotification('Paramètres chargés avec succès', 'success');
-            } else {
-                throw new Error(response?.error || 'Failed to load settings');
-            }
-        } catch (error) {
-            console.error('Error loading settings:', error);
-            this.showNotification('Erreur lors du chargement', 'error');
-            this.showError();
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    async handleToggleClick(event) {
-        const toggle = event.currentTarget;
-        const settingKey = toggle.dataset.toggle;
         const checkbox = toggle.querySelector('input[type="checkbox"]');
-        
-        if (!settingKey || this.isLoading) return;
-        
-        try {
-            // Optimistic UI update
-            const newValue = !checkbox.checked;
-            this.updateToggleState(toggle, newValue);
-            
-            // Handle special cases
-            if (settingKey === 'ghostMode') {
-                this.toggleGhostMode(newValue);
-            }
-            
-            // Send update to background
-            const response = await this.sendMessage({
-                type: 'updateSetting',
-                setting: settingKey,
-                value: newValue
-            });
-            
-            if (response?.success) {
-                this.settings[settingKey] = newValue;
-                this.updateStatus();
-                this.updateStats();
-                
-                const action = newValue ? 'activée' : 'désactivée';
-                this.showNotification(`Protection ${this.getSettingDisplayName(settingKey)} ${action}`, 'success');
-            } else {
-                // Revert on error
-                this.updateToggleState(toggle, !newValue);
-                throw new Error(response?.error || 'Failed to update setting');
-            }
-        } catch (error) {
-            console.error('Error updating setting:', error);
-            this.showNotification('Erreur lors de la mise à jour', 'error');
+        if (checkbox) {
+          checkbox.checked = isEnabled;
         }
+      }
     }
+  }
 
-    updateToggleState(toggle, isActive) {
-        const checkbox = toggle.querySelector('input[type="checkbox"]');
-        checkbox.checked = isActive;
-        
-        if (isActive) {
-            toggle.classList.add('active');
+  showGhostMode() {
+    if (this.ghostModeIcon) {
+      this.ghostModeIcon.style.display = 'block';
+    }
+    
+    const normalControls = document.getElementById('normalControls');
+    if (normalControls) {
+      normalControls.style.display = 'none';
+    }
+    
+    this.updateStatusCard('ghost', 'Mode Fantôme Actif', '👻');
+  }
+
+  hideGhostMode() {
+    if (this.ghostModeIcon) {
+      this.ghostModeIcon.style.display = 'none';
+    }
+    
+    const normalControls = document.getElementById('normalControls');
+    if (normalControls) {
+      normalControls.style.display = 'block';
+    }
+  }
+
+  updateNormalInterface(isActive) {
+    if (isActive) {
+      this.updateStatusCard('active', 'Protection Active', '🛡️');
+    } else {
+      this.updateStatusCard('inactive', 'Protection Désactivée', '⚠️');
+    }
+  }
+
+  updateStatusCard(state, text, icon) {
+    const statusCard = document.getElementById('status');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusText = document.getElementById('statusText');
+    
+    if (statusCard) {
+      statusCard.className = `status-card ${state}`;
+    }
+    
+    if (statusIcon) {
+      statusIcon.className = `status-icon ${state}`;
+      statusIcon.textContent = icon;
+    }
+    
+    if (statusText) {
+      statusText.textContent = text;
+    }
+  }
+
+  updateStats() {
+    if (this.activeProtectionsEl) {
+      this.activeProtectionsEl.textContent = this.stats.activeProtections;
+    }
+    if (this.blockedRequestsEl) {
+      this.blockedRequestsEl.textContent = this.stats.blockedRequests;
+    }
+    if (this.spoofedDataEl) {
+      this.spoofedDataEl.textContent = this.stats.spoofedData;
+    }
+  }
+
+  async handleToggleClick(toggle) {
+    const settingKey = toggle.dataset.toggle;
+    const mappedKey = this.settingsMappings[settingKey];
+    
+    if (!mappedKey) return;
+    
+    const checkbox = toggle.querySelector('input[type="checkbox"]');
+    if (!checkbox) return;
+    
+    const currentValue = checkbox.checked;
+    const newValue = !currentValue;
+    
+    try {
+      const response = await this.sendMessage({
+        type: 'updateSetting',
+        setting: mappedKey,
+        value: newValue
+      });
+      
+      if (response?.success) {
+        checkbox.checked = newValue;
+        if (newValue) {
+          toggle.classList.add('active');
         } else {
-            toggle.classList.remove('active');
+          toggle.classList.remove('active');
         }
         
-        // Add animation effect
-        toggle.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            toggle.style.transform = '';
-        }, 150);
-    }
-
-    updateInterface() {
-        // Update all toggle states
-        Object.entries(this.settingsMappings).forEach(([elementId, settingKey]) => {
-            const toggle = document.querySelector(`[data-toggle="${elementId}"]`);
-            if (toggle) {
-                this.updateToggleState(toggle, this.settings[settingKey] || false);
-            }
-        });
+        this.settings[mappedKey] = newValue;
+        this.updateInterface();
         
-        // Handle ghost mode
-        if (this.settings?.ghostMode) {
-            this.toggleGhostMode(true);
-        }
-        
-        this.updateStatus();
-        
-        // Add fade-in animation
-        document.querySelector('.main-content').classList.add('fade-in');
+        const action = newValue ? 'activée' : 'désactivée';
+        this.showNotification(`Protection ${action}`, 'success');
+      } else {
+        throw new Error(response?.error || 'Update failed');
+      }
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      this.showNotification('Erreur de mise à jour', 'error');
     }
+  }
 
-    updateStatus() {
-        const activeProtections = Object.entries(this.settingsMappings)
-            .filter(([_, settingKey]) => settingKey !== 'ghostMode' && this.settings[settingKey])
-            .length;
-        
-        let statusClass, statusText, statusIcon;
-        
-        if (this.settings?.ghostMode) {
-            statusClass = 'ghost';
-            statusText = 'Mode Fantôme Actif';
-            statusIcon = '👻';
-        } else if (activeProtections > 0) {
-            statusClass = 'active';
-            statusText = `${activeProtections} Protection${activeProtections > 1 ? 's' : ''} Active${activeProtections > 1 ? 's' : ''}`;
-            statusIcon = '🛡️';
-        } else {
-            statusClass = 'inactive';
-            statusText = 'Protection Inactive';
-            statusIcon = '⚠️';
-        }
-        
-        // Update status card
-        this.statusCard.className = `status-card ${statusClass}`;
-        if (this.statusText) {
-            this.statusText.textContent = statusText;
-        }
-        if (this.statusIcon) {
-            this.statusIcon.textContent = statusIcon;
-            this.statusIcon.className = `status-icon ${statusClass}`;
-        }
-        
-        // Update stats
-        this.stats.activeProtections = activeProtections;
-        this.updateStatsDisplay();
+  async reloadAllTabs() {
+    try {
+      const response = await this.sendMessage({ type: 'reloadAllTabs' });
+      if (response?.success) {
+        this.showNotification('Tous les onglets rechargés', 'success');
+      } else {
+        throw new Error(response?.error || 'Reload failed');
+      }
+    } catch (error) {
+      console.error('Error reloading tabs:', error);
+      this.showNotification('Erreur lors du rechargement', 'error');
     }
+  }
 
-    updateStats() {
-        // Simulate realistic stats (in real implementation, these would come from background)
-        if (this.stats.activeProtections > 0) {
-            this.stats.blockedRequests += Math.floor(Math.random() * 3);
-            this.stats.spoofedData += Math.floor(Math.random() * 5);
-        }
-        
-        this.updateStatsDisplay();
+  openSettings() {
+    try {
+      chrome.runtime.openOptionsPage();
+      window.close();
+    } catch (error) {
+      console.error('Error opening settings:', error);
+      this.showNotification('Erreur ouverture paramètres', 'error');
     }
+  }
 
-    updateStatsDisplay() {
-        this.animateNumber(this.activeProtectionsEl, this.stats.activeProtections);
-        this.animateNumber(this.blockedRequestsEl, this.stats.blockedRequests);
-        this.animateNumber(this.spoofedDataEl, this.stats.spoofedData);
+  showLoading(show) {
+    if (this.loadingOverlay) {
+      this.loadingOverlay.style.display = show ? 'flex' : 'none';
     }
+  }
 
-    animateNumber(element, targetValue) {
-        const currentValue = parseInt(element.textContent) || 0;
-        const step = targetValue > currentValue ? 1 : -1;
-        
-        if (currentValue !== targetValue) {
-            const animate = () => {
-                const newValue = parseInt(element.textContent) + step;
-                element.textContent = newValue;
-                
-                if (newValue !== targetValue) {
-                    requestAnimationFrame(animate);
-                }
-            };
-            
-            requestAnimationFrame(animate);
-        }
-    }
+  showError() {
+    this.updateStatusCard('inactive', 'Erreur de Chargement', '❌');
+  }
 
-    toggleGhostMode(enabled) {
-        if (enabled) {
-            this.normalControls.style.display = 'none';
-            this.ghostModeIcon.style.display = 'block';
-            
-            // Disable other toggles
-            this.toggleSwitches.forEach(toggle => {
-                if (toggle.dataset.toggle !== 'ghostMode') {
-                    toggle.parentElement.classList.add('disabled');
-                    const checkbox = toggle.querySelector('input');
-                    if (checkbox) checkbox.disabled = true;
-                }
-            });
-        } else {
-            this.normalControls.style.display = 'block';
-            this.ghostModeIcon.style.display = 'none';
-            
-            // Re-enable other toggles
-            this.toggleSwitches.forEach(toggle => {
-                toggle.parentElement.classList.remove('disabled');
-                const checkbox = toggle.querySelector('input');
-                if (checkbox) checkbox.disabled = false;
-            });
-        }
-    }
+  showNotification(message, type = 'info') {
+    if (!this.notification || !this.notificationText) return;
+    
+    this.notificationText.textContent = message;
+    this.notification.className = `notification ${type}`;
+    this.notification.classList.add('show');
+    
+    setTimeout(() => {
+      this.notification.classList.remove('show');
+    }, 3000);
+  }
 
-    async reloadAllTabs() {
-        if (this.isLoading) return;
-        
-        try {
-            this.setButtonLoading(this.reloadButton, true);
-            
-            const tabs = await chrome.tabs.query({});
-            let reloadedCount = 0;
-            
-            for (const tab of tabs) {
-                if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
-                    try {
-                        await chrome.tabs.reload(tab.id);
-                        reloadedCount++;
-                    } catch (error) {
-                        console.warn(`Failed to reload tab ${tab.id}:`, error);
-                    }
-                }
-            }
-            
-            this.showNotification(`${reloadedCount} page${reloadedCount > 1 ? 's' : ''} rechargée${reloadedCount > 1 ? 's' : ''}`, 'success');
-            
-        } catch (error) {
-            console.error('Error reloading tabs:', error);
-            this.showNotification('Erreur lors du rechargement', 'error');
-        } finally {
-            this.setButtonLoading(this.reloadButton, false);
-        }
+  async sendMessage(message) {
+    try {
+      return await chrome.runtime.sendMessage(message);
+    } catch (error) {
+      console.error('Message sending failed:', error);
+      return { success: false, error: error.message };
     }
-
-    openSettings() {
-        chrome.runtime.openOptionsPage();
-    }
-
-    toggleTheme() {
-        this.theme = this.theme === 'light' ? 'dark' : 'light';
-        this.applyTheme();
-        localStorage.setItem('fpg-theme', this.theme);
-        
-        const emoji = this.theme === 'light' ? '🌙' : '☀️';
-        this.themeToggle.textContent = emoji;
-        
-        this.showNotification(`Thème ${this.theme === 'light' ? 'clair' : 'sombre'} activé`, 'success');
-    }
-
-    applyTheme() {
-        document.body.setAttribute('data-theme', this.theme);
-        const emoji = this.theme === 'light' ? '🌙' : '☀️';
-        this.themeToggle.textContent = emoji;
-    }
-
-    showLoading(show) {
-        this.isLoading = show;
-        this.loadingOverlay.style.display = show ? 'flex' : 'none';
-        
-        if (!show) {
-            // Add entrance animation
-            setTimeout(() => {
-                document.querySelector('.main-content').classList.add('slide-up');
-            }, 100);
-        }
-    }
-
-    setButtonLoading(button, loading) {
-        if (loading) {
-            button.classList.add('loading');
-            button.disabled = true;
-        } else {
-            button.classList.remove('loading');
-            button.disabled = false;
-        }
-    }
-
-    showNotification(message, type = 'success') {
-        this.notificationQueue.push({ message, type });
-        this.processNotificationQueue();
-    }
-
-    processNotificationQueue() {
-        if (this.notificationQueue.length === 0 || this.notification?.classList.contains('show')) {
-            return;
-        }
-        
-        const { message, type } = this.notificationQueue.shift();
-        
-        if (this.notificationText) {
-            this.notificationText.textContent = message;
-        }
-        if (this.notification) {
-            this.notification.className = `notification ${type}`;
-        }
-        this.notification?.classList.add('show');
-        
-        setTimeout(() => {
-            this.notification?.classList.remove('show');
-            setTimeout(() => this.processNotificationQueue(), 300);
-        }, 3000);
-    }
-
-    showError() {
-        this.statusCard.classList.add('inactive');
-        if (this.statusText) {
-            this.statusText.textContent = 'Erreur de connexion';
-        }
-        if (this.statusIcon) {
-            this.statusIcon.textContent = '❌';
-        }
-    }
-
-    handleKeyboard(event) {
-        // Keyboard shortcuts
-        if (event.ctrlKey || event.metaKey) {
-            switch (event.key) {
-                case 'r':
-                    event.preventDefault();
-                    this.reloadAllTabs();
-                    break;
-                case ',':
-                    event.preventDefault();
-                    this.openSettings();
-                    break;
-                case 't':
-                    event.preventDefault();
-                    this.toggleTheme();
-                    break;
-            }
-        }
-        
-        // Ghost mode quick toggle
-        if (event.key === 'g' && event.altKey) {
-            event.preventDefault();
-            const ghostToggle = document.querySelector('[data-toggle="ghostMode"]');
-            if (ghostToggle) {
-                ghostToggle.click();
-            }
-        }
-    }
-
-    showAbout() {
-        this.showNotification('FingerprintGuard v2.1.0 - Protection avancée contre le fingerprinting', 'success');
-    }
-
-    showHelp() {
-        chrome.tabs.create({
-            url: 'https://github.com/yourrepo/fingerprintguard/wiki'
-        });
-    }
-
-    getSettingDisplayName(settingKey) {
-        const names = {
-            ghostMode: 'Mode Fantôme',
-            spoofBrowser: 'Navigateur & Client Hints',
-            spoofCanvas: 'Canvas',
-            spoofScreen: 'Écran',
-            blockImages: 'Images',
-            blockJS: 'JavaScript'
-        };
-        return names[settingKey] || settingKey;
-    }
-
-    async sendMessage(message) {
-        try {
-            if (!chrome?.runtime?.sendMessage) {
-                throw new Error('Chrome extension API not available');
-            }
-            
-            const response = await chrome.runtime.sendMessage(message);
-            
-            if (!response) {
-                throw new Error('No response received from background script');
-            }
-            
-            return response;
-        } catch (error) {
-            console.error('Error sending message:', error);
-            // Si l'extension est rechargée, la popup peut perdre la connexion
-            if (error.message.includes('Extension context invalidated')) {
-                window.location.reload();
-                return null;
-            }
-            throw error;
-        }
-    }
+  }
 }
 
-// Advanced features
-class AdvancedFeatures {
-    static async detectActiveFingerprinting() {
-        try {
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tabs[0]) {
-                const results = await chrome.scripting.executeScript({
-                    target: { tabId: tabs[0].id },
-                    func: () => {
-                        return window.getFingerprintingDetections ? window.getFingerprintingDetections() : [];
-                    }
-                });
-                
-                return results[0]?.result || [];
-            }
-        } catch (error) {
-            console.error('Error detecting fingerprinting:', error);
-        }
-        return [];
-    }
-
-    static async injectAdvancedProtections() {
-        try {
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tabs[0]) {
-                await chrome.scripting.executeScript({
-                    target: { tabId: tabs[0].id },
-                    files: ['advanced-protection.js']
-                });
-                
-                await chrome.scripting.executeScript({
-                    target: { tabId: tabs[0].id },
-                    func: () => {
-                        if (window.enableAllAdvancedProtections) {
-                            window.enableAllAdvancedProtections();
-                            window.detectFingerprintingAttempts();
-                        }
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error injecting advanced protections:', error);
-        }
-    }
-}
-
-// Initialize when DOM is ready
+// Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.fingerprintGuardPopup = new FingerprintGuardPopup();
-    
-    // Inject advanced protections on current tab
-    AdvancedFeatures.injectAdvancedProtections();
-    
-    // Check for active fingerprinting attempts
-    setInterval(async () => {
-        const detections = await AdvancedFeatures.detectActiveFingerprinting();
-        if (detections.length > 0) {
-            console.log('Fingerprinting attempts detected:', detections);
-        }
-    }, 10000);
+  new FingerprintGuardPopup();
 });
-
-// Handle extension updates
-chrome.runtime.onMessage?.addListener((message, sender, sendResponse) => {
-    if (message.type === 'settingsUpdated') {
-        window.fingerprintGuardPopup?.loadSettings();
-    }
-});
-
-// Export for testing
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { FingerprintGuardPopup, AdvancedFeatures };
-}

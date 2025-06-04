@@ -1,6 +1,6 @@
 {
   "name": "fingerprintguard",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "protege la vie privée des utilisateurs en usurpant certaines informations du navigateur",
   "main": "./popup.js",
   "type": "module",

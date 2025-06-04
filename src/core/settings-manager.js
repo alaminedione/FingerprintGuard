@@ -171,7 +171,48 @@ export class SettingsManager {
       }
     });
 
+    // Validation spéciale pour la résolution d'écran
+    if (validated.spoofScreenResolution && validated.spoofScreenResolution !== 'random') {
+      const resolutionValidation = this.validateScreenResolution(validated.spoofScreenResolution);
+      if (!resolutionValidation.valid) {
+        console.warn(`⚠️ Résolution d'écran invalide '${validated.spoofScreenResolution}'. ${resolutionValidation.reason}`);
+        validated.spoofScreenResolution = DEFAULT_SETTINGS.spoofScreenResolution;
+      }
+    }
+
     return validated;
+  }
+
+  /**
+   * Valide une résolution d'écran
+   * @param {string} resolution - Résolution à valider (format: "1920x1080")
+   * @returns {object} Résultat de validation
+   */
+  validateScreenResolution(resolution) {
+    if (typeof resolution !== 'string') {
+      return { valid: false, reason: 'La résolution doit être une chaîne de caractères' };
+    }
+
+    if (resolution === 'random') {
+      return { valid: true };
+    }
+
+    const resolutionPattern = /^\d{3,4}x\d{3,4}$/;
+    if (!resolutionPattern.test(resolution)) {
+      return { valid: false, reason: 'Format invalide. Utilisez le format "1920x1080"' };
+    }
+
+    const [width, height] = resolution.split('x').map(Number);
+    
+    if (width < 800 || height < 600) {
+      return { valid: false, reason: 'Résolution trop petite (minimum 800x600)' };
+    }
+
+    if (width > 7680 || height > 4320) {
+      return { valid: false, reason: 'Résolution trop grande (maximum 7680x4320)' };
+    }
+
+    return { valid: true };
   }
 
   /**
