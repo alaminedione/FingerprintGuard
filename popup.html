@@ -611,8 +611,8 @@
 
     <!-- Header -->
     <header class="header">
-        <button id="themeToggle" class="theme-toggle" title="Changer de thème">
-            🌙
+        <button id="themeToggle" class="theme-toggle" title="Changer de thème" aria-label="Basculer entre thème clair et sombre">
+            <span aria-hidden="true">🌙</span>
         </button>
         <div class="header-content">
             <div class="logo">
@@ -673,40 +673,40 @@
                 <div class="control-grid">
                     <label class="control-item" for="spoofBrowser">
                         <div class="control-info">
-                            <div class="control-icon">🌐</div>
+                            <div class="control-icon" aria-hidden="true">🌐</div>
                             <div class="control-details">
                                 <h4>Navigateur & Client Hints</h4>
                                 <p>Falsifie l'identité complète du navigateur (Navigator + User-Agent)</p>
                             </div>
                         </div>
-                        <div class="toggle-switch" data-toggle="spoofBrowser">
-                            <input type="checkbox" id="spoofBrowser" hidden>
+                        <div class="toggle-switch" data-toggle="spoofBrowser" role="switch" tabindex="0">
+                            <input type="checkbox" id="spoofBrowser" hidden aria-label="Activer la falsification du navigateur">
                         </div>
                     </label>
 
                     <label class="control-item" for="spoofCanvas">
                         <div class="control-info">
-                            <div class="control-icon">🎨</div>
+                            <div class="control-icon" aria-hidden="true">🎨</div>
                             <div class="control-details">
                                 <h4>Canvas</h4>
                                 <p>Protège contre le fingerprinting canvas</p>
                             </div>
                         </div>
-                        <div class="toggle-switch" data-toggle="spoofCanvas">
-                            <input type="checkbox" id="spoofCanvas" hidden>
+                        <div class="toggle-switch" data-toggle="spoofCanvas" role="switch" tabindex="0">
+                            <input type="checkbox" id="spoofCanvas" hidden aria-label="Activer la protection canvas">
                         </div>
                     </label>
 
                     <label class="control-item" for="spoofScreen">
                         <div class="control-info">
-                            <div class="control-icon">📺</div>
+                            <div class="control-icon" aria-hidden="true">📺</div>
                             <div class="control-details">
                                 <h4>Écran</h4>
                                 <p>Falsifie les propriétés d'écran</p>
                             </div>
                         </div>
-                        <div class="toggle-switch" data-toggle="spoofScreen">
-                            <input type="checkbox" id="spoofScreen" hidden>
+                        <div class="toggle-switch" data-toggle="spoofScreen" role="switch" tabindex="0">
+                            <input type="checkbox" id="spoofScreen" hidden aria-label="Activer la falsification d'écran">
                         </div>
                     </label>
                 </div>
@@ -721,27 +721,27 @@
                 <div class="control-grid">
                     <label class="control-item" for="blockImages">
                         <div class="control-info">
-                            <div class="control-icon">🖼️</div>
+                            <div class="control-icon" aria-hidden="true">🖼️</div>
                             <div class="control-details">
                                 <h4>Images</h4>
                                 <p>Bloque le chargement des images</p>
                             </div>
                         </div>
-                        <div class="toggle-switch" data-toggle="blockImages">
-                            <input type="checkbox" id="blockImages" hidden>
+                        <div class="toggle-switch" data-toggle="blockImages" role="switch" tabindex="0">
+                            <input type="checkbox" id="blockImages" hidden aria-label="Bloquer les images">
                         </div>
                     </label>
 
                     <label class="control-item" for="blockJS">
                         <div class="control-info">
-                            <div class="control-icon">⚡</div>
+                            <div class="control-icon" aria-hidden="true">⚡</div>
                             <div class="control-details">
                                 <h4>JavaScript</h4>
                                 <p>Bloque l'exécution de JavaScript</p>
                             </div>
                         </div>
-                        <div class="toggle-switch" data-toggle="blockJS">
-                            <input type="checkbox" id="blockJS" hidden>
+                        <div class="toggle-switch" data-toggle="blockJS" role="switch" tabindex="0">
+                            <input type="checkbox" id="blockJS" hidden aria-label="Bloquer JavaScript">
                         </div>
                     </label>
                 </div>
@@ -756,14 +756,14 @@
                 <div class="control-grid">
                     <label class="control-item" for="ghostMode">
                         <div class="control-info">
-                            <div class="control-icon">👻</div>
+                            <div class="control-icon" aria-hidden="true">👻</div>
                             <div class="control-details">
                                 <h4>Mode Fantôme</h4>
                                 <p>Protection maximale (peut casser des sites)</p>
                             </div>
                         </div>
-                        <div class="toggle-switch" data-toggle="ghostMode">
-                            <input type="checkbox" id="ghostMode" hidden>
+                        <div class="toggle-switch" data-toggle="ghostMode" role="switch" tabindex="0">
+                            <input type="checkbox" id="ghostMode" hidden aria-label="Activer le mode fantôme">
                         </div>
                     </label>
                 </div>

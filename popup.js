@@ -11,7 +11,7 @@ class FingerprintGuardPopup {
       blockedRequests: 0,
       spoofedData: 0
     };
-    this.theme = 'light'; // Valeur par défaut temporaire
+    this.theme = null; // Sera initialisé dans loadSettings
     this.isLoading = false;
     this.notificationQueue = [];
     
@@ -65,14 +65,22 @@ class FingerprintGuardPopup {
       this.settingsButton.addEventListener('click', () => this.openSettings());
     }
 
-    // Toggle switches
+    // Toggle switches avec support clavier
     document.querySelectorAll('.toggle-switch').forEach(toggle => {
       toggle.addEventListener('click', () => this.handleToggleClick(toggle));
+      
+      // Support clavier pour accessibilité
+      toggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.handleToggleClick(toggle);
+        }
+      });
     });
 
-    // Close popup when clicking outside
+    // Close popup when clicking outside main content (but allow for header and footer interactions)
     document.addEventListener('click', (event) => {
-      if (!event.target.closest('.container')) {
+      if (!event.target.closest('.main-content, .header, .footer, .notification')) {
         window.close();
       }
     });
@@ -99,6 +107,9 @@ class FingerprintGuardPopup {
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+      // Fallback au thème par défaut en cas d'erreur
+      this.theme = 'light';
+      this.applyTheme();
       this.showNotification('Erreur lors du chargement', 'error');
       this.showError();
     } finally {
@@ -135,6 +146,8 @@ class FingerprintGuardPopup {
   }
 
   applyTheme() {
+    if (!this.theme) return; // N'applique le thème que s'il est défini
+    
     document.body.setAttribute('data-theme', this.theme);
     const emoji = this.theme === 'light' ? '🌙' : '☀️';
     
@@ -143,6 +156,10 @@ class FingerprintGuardPopup {
       this.themeToggle.title = this.theme === 'light' 
         ? 'Passer au thème sombre' 
         : 'Passer au thème clair';
+      // Amélioration accessibilité
+      this.themeToggle.setAttribute('aria-label', this.theme === 'light' 
+        ? 'Basculer vers le thème sombre' 
+        : 'Basculer vers le thème clair');
     }
   }
 
@@ -158,7 +175,7 @@ class FingerprintGuardPopup {
       this.updateNormalInterface(isActive);
     }
     
-    // Update toggle switches
+    // Update toggle switches with accessibility support
     for (const [key, settingKey] of Object.entries(this.settingsMappings)) {
       const toggle = document.querySelector(`[data-toggle="${key}"]`);
       const isEnabled = this.settings[settingKey];
@@ -169,6 +186,9 @@ class FingerprintGuardPopup {
         } else {
           toggle.classList.remove('active');
         }
+        
+        // Mise à jour des attributs d'accessibilité
+        toggle.setAttribute('aria-checked', isEnabled.toString());
         
         const checkbox = toggle.querySelector('input[type="checkbox"]');
         if (checkbox) {
@@ -253,6 +273,14 @@ class FingerprintGuardPopup {
     const currentValue = checkbox.checked;
     const newValue = !currentValue;
     
+    // Mise à jour optimiste de l'UI
+    checkbox.checked = newValue;
+    if (newValue) {
+      toggle.classList.add('active');
+    } else {
+      toggle.classList.remove('active');
+    }
+    
     try {
       const response = await this.sendMessage({
         type: 'updateSetting',
@@ -261,13 +289,6 @@ class FingerprintGuardPopup {
       });
       
       if (response?.success) {
-        checkbox.checked = newValue;
-        if (newValue) {
-          toggle.classList.add('active');
-        } else {
-          toggle.classList.remove('active');
-        }
-        
         this.settings[mappedKey] = newValue;
         this.updateInterface();
         
@@ -278,6 +299,13 @@ class FingerprintGuardPopup {
       }
     } catch (error) {
       console.error('Error updating setting:', error);
+      // Revenir à l'état précédent en cas d'erreur
+      checkbox.checked = currentValue;
+      if (currentValue) {
+        toggle.classList.add('active');
+      } else {
+        toggle.classList.remove('active');
+      }
       this.showNotification('Erreur de mise à jour', 'error');
     }
   }
