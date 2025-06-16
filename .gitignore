@@ -4,3 +4,4 @@ _metadata/
 TODO.md
 dist/
 forge.yaml
+.env
