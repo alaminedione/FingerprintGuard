@@ -8,19 +8,25 @@ FingerprintGuard est une extension de navigateur avancée qui vous protège cont
 
 ## ✨ Fonctionnalités principales
 
-### 🎭 Protections disponibles
-- **Mode Fantôme** : Anonymisation complète en masquant toutes les propriétés sensibles
+### 🎭 Modes de Protection
+- **Mode Fantôme** : Anonymisation complète avec contrôles dans le popup
+- **Just Protect Me** : Protection automatique avec configuration minimale
+- **Mode Avancé** : Configuration détaillée pour utilisateurs expérimentés
+- **Mode Simple** : Interface épurée pour débutants
+
+### 🔧 Protections Disponibles
 - **Spoofing du Navigateur** : Falsification des propriétés navigator, User-Agent et Client Hints  
 - **Spoofing Canvas** : Protection contre le fingerprinting via Canvas
 - **Spoofing d'Écran** : Falsification des propriétés d'affichage
+- **Protection WebRTC** : Prévention des fuites d'IP réelle
 - **Blocage d'Images/JS** : Contrôle du chargement de contenu
 
-### 🔧 Fonctionnalités avancées
-- **Profils personnalisés** : Sauvegarde et réutilisation de configurations de spoofing
-- **Génération automatique** : Création de profils cohérents et réalistes
-- **Protection WebRTC** : Prévention des fuites d'IP réelle
-- **Raccourcis clavier** : Activation rapide des fonctionnalités
-- **Interface moderne** : Design élégant avec thème sombre/clair
+### 🚀 Nouvelles Fonctionnalités v2.1.0
+- **Contrôle du Mode Fantôme depuis le Popup** : Désactivation et régénération directement accessible
+- **Badge d'Extension** : Indicateur visuel de l'état de protection (👻 mode fantôme, 🛡️ protection active)
+- **Navigation Complète** : Accès à toutes les sections des paramètres
+- **Interface Réactive** : Notifications et états de chargement améliorés
+- **Gestion d'Erreurs Robuste** : Récupération gracieuse des erreurs
 
 ## 🚀 Installation
 
@@ -31,87 +37,137 @@ FingerprintGuard est une extension de navigateur avancée qui vous protège cont
 4. Cliquez sur "Charger l'extension non empaquetée"
 5. Sélectionnez le dossier de l'extension
 
-### Firefox (bientôt supporté)
-Le support Firefox est prévu dans une future version avec adaptation au manifest v2.
+### Firefox
+Support prévu dans une future version avec adaptation au manifest v2.
 
-## ⚙️ Configuration
+## ⚙️ Utilisation
 
-### Premier lancement
-1. Cliquez sur l'icône de l'extension dans la barre d'outils
-2. Activez les protections souhaitées
-3. Optionnel : Configurez des profils personnalisés via les paramètres
-4. Les protections s'appliquent automatiquement aux nouveaux onglets
+### Interface Popup
+1. **Cliquez sur l'icône** de l'extension dans la barre d'outils
+2. **Mode Fantôme** : Activez/désactivez depuis le toggle ou utilisez les boutons de contrôle
+3. **Protections Standard** : Activez individuellement chaque protection
+4. **Paramètres** : Accédez à la configuration complète
 
-### Options disponibles
-- **Mode Fantôme** : Protection maximale (désactive les autres options)
-- **Spoofing intelligent** : Falsification cohérente des données
-- **Blocages sélectifs** : Images et/ou JavaScript selon vos besoins
-- **Rechargements automatiques** : Application immédiate des changements
+### Page des Paramètres
+1. **Modes d'Interface** : Choisissez entre Simple, Avancé, ou Just Protect Me
+2. **Navigation** : Accédez aux sections Général, Navigateur, User-Agent, En-têtes, Écran, Profils, Avancé, Statistiques
+3. **Profils** : Créez, gérez et appliquez des profils de protection personnalisés
+4. **Just Protect Me** : Configuration automatique avec niveaux de protection (Faible, Moyen, Élevé)
 
-## 🧪 Tester l'efficacité
+### Raccourcis Clavier
+- `Alt+G` : Basculer le mode fantôme
+- `Ctrl+Shift+R` : Recharger tous les onglets
+- `Alt+F` : Ouvrir le popup
 
-Vérifie l'efficacité de FingerprintGuard sur ces sites :
+## 🎯 Modes de Protection
+
+### 👻 Mode Fantôme
+- **Activation** : Via le toggle dans le popup ou les paramètres
+- **Fonctionnalités** : Anonymisation complète, désactivation depuis le popup
+- **Contrôles** : Boutons Désactiver et Régénérer directement dans le popup
+- **Indicateur** : Badge violet 👻 sur l'icône de l'extension
+
+### 🛡️ Just Protect Me
+- **Objectif** : Protection automatique sans configuration complexe
+- **Niveaux** : Faible (navigation rapide), Moyen (équilibré), Élevé (protection maximale)
+- **Configuration** : Sélection OS/Navigateur automatique
+- **Activation** : Un clic pour activer la protection
+
+### ⚙️ Mode Avancé
+- **Contrôle Granulaire** : Configuration détaillée de chaque protection
+- **Profils Personnalisés** : Création et gestion de profils spécifiques
+- **Paramètres Experts** : Accès à tous les réglages techniques
+
+## 🧪 Tester l'Efficacité
+
+Vérifiez l'efficacité de FingerprintGuard sur ces sites :
 
 1. **What Is My Browser** : [whatismybrowser.com](https://www.whatismybrowser.com)
 2. **BrowserLeaks** : [browserleaks.com](https://browserleaks.com)
 3. **Cover Your Tracks** : [coveryourtracks.eff.org](https://coveryourtracks.eff.org)
+4. **AmIUnique** : [amiunique.org](https://amiunique.org)
 
 ⚠️ **Note** : Le **Mode Fantôme** peut affecter le fonctionnement de certains sites web.
 
-## 📸 Screenshots
+## 📸 Interface
 
 ![Fingerprint Guard Interface](./FingerprintGuard.png)
 *Interface principale de FingerprintGuard*
 
 ![Ghost Mode Activated](./ghostMode.png)
-*Mode Fantôme activé pour une protection maximale*
+*Mode Fantôme avec contrôles de désactivation*
 
 ## 🛠️ Développement
 
-### Structure du projet
+### Structure du Projet
 ```
 FingerprintGuard/
-├── manifest.json          # Configuration de l'extension
-├── background.js          # Service worker principal  
-├── popup.html/js          # Interface utilisateur
-├── settings.html/js       # Page de configuration
-├── spoofing-data.js      # Génération des données factices
-├── spoofing-apply.js     # Application du spoofing
-├── utils.js              # Fonctions utilitaires
-├── advanced-protection.js # Protections avancées
-└── spoofer/              # Scripts de protection
+├── manifest.json              # Configuration extension (Manifest V3)
+├── src/
+│   ├── background.js          # Service worker principal
+│   ├── config/defaults.js     # Configuration par défaut
+│   ├── core/                  # Modules principaux
+│   ├── spoofing/             # Logique de spoofing
+│   └── utils.js              # Fonctions utilitaires
+├── popup.html/js             # Interface popup avec contrôles
+├── settings.html/js          # Page configuration complète
+├── css/                      # Styles interface
+├── icons/                    # Icônes extension
+├── spoofer/                  # Scripts protection
+└── advanced-protection.js    # Protections avancées
 ```
 
-### APIs utilisées
-- `chrome.scripting` : Injection de scripts de protection
-- `chrome.storage` : Sauvegarde des paramètres et profils  
-- `chrome.declarativeNetRequest` : Modification des en-têtes HTTP
-- `chrome.webNavigation` : Détection de navigations
-- `chrome.contentSettings` : Blocage d'images/JavaScript
+### Technologies
+- **Manifest V3** : Dernière version Chrome Extensions
+- **Service Worker** : Background script moderne
+- **Chrome APIs** : scripting, storage, declarativeNetRequest, webNavigation
+- **Interface Moderne** : HTML5, CSS3, JavaScript ES6+
 
 ## 🔒 Sécurité et Confidentialité
 
-### Données collectées
-- **Aucune donnée personnelle** n'est collectée ou transmise
-- Toutes les configurations sont stockées localement
-- Aucune télémétrie ou analytics
+### Données Collectées
+- **Aucune donnée personnelle** collectée ou transmise
+- **Stockage local uniquement** : Paramètres et profils en local
+- **Pas de télémétrie** : Aucun tracking ou analytics
+- **Open Source** : Code source entièrement disponible
 
-### Fonctionnement hors ligne
-L'extension fonctionne entièrement en local, aucune connexion internet n'est requise.
+### Fonctionnement
+- **100% Local** : Aucune connexion internet requise
+- **Chiffrement** : Données sensibles protégées
+- **Isolation** : Chaque site traité indépendamment
 
 ## 📝 Changelog
 
 ### Version 2.1.0 (Actuelle)
-- 🐛 **Corrections majeures** : Gestion d'erreurs robuste, validation des paramètres
-- ⚡ **Performance** : Optimisation de l'injection de scripts, mise en cache des profils  
-- 🔒 **Sécurité** : Validation des URLs, protection contre les injections
-- 🎨 **Interface** : Messages d'erreur améliorés, thème sombre/clair
+#### 🆕 Nouvelles Fonctionnalités
+- **Contrôles Mode Fantôme dans Popup** : Désactivation et régénération directes
+- **Badge d'Extension** : Indicateurs visuels d'état (👻/🛡️)
+- **Navigation Complète** : Accès à toutes les sections des paramètres
+- **Interface Just Protect Me** : Mode de protection automatique
 
-Voir [IMPROVEMENTS.md](IMPROVEMENTS.md) pour la liste détaillée des améliorations.
+#### 🐛 Corrections Majeures
+- **Navigation Paramètres** : Toutes les sections maintenant fonctionnelles
+- **Gestion d'Erreurs** : Correction TypeError et amélioration robustesse
+- **Event Listeners** : Cycle de vie approprié pour les éléments dynamiques
+- **Synchronisation État** : Cohérence entre popup et paramètres
+
+#### ⚡ Améliorations Techniques
+- **Performance** : Optimisation injection scripts et mise en cache
+- **UX** : États de chargement, notifications, feedback visuel
+- **Accessibilité** : Support clavier et lecteurs d'écran
+- **Code Quality** : Gestion d'erreurs complète, validation entrées
 
 ## ⚠️ Avertissement
 
 Cette extension est destinée à des fins de protection de la vie privée et de recherche. L'utilisation pour contourner des mesures de sécurité ou à des fins malveillantes n'est pas encouragée. Utilisez-la de manière responsable et respectez les conditions d'utilisation des sites web.
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! N'hésitez pas à :
+- Signaler des bugs via les issues
+- Proposer des améliorations
+- Soumettre des pull requests
+- Améliorer la documentation
 
 ## 📄 Licence
 
@@ -120,3 +176,5 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 ---
 
 **Développé avec ❤️ pour la protection de la vie privée en ligne.**
+
+*Dernière mise à jour : Juin 2025*
