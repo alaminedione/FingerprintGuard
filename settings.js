@@ -4,6 +4,101 @@
  */
 
 class FingerprintGuardSettings {
+    // Global error handler for the settings page
+    setupGlobalErrorHandling() {
+        // Catch unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            this.showNotification('Une erreur inattendue s\'est produite. Veuillez recharger la page.', 'danger');
+            event.preventDefault();
+        });
+
+        // Catch global errors
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            this.showNotification('Erreur JavaScript détectée. Certaines fonctionnalités pourraient ne pas fonctionner.', 'warning');
+        });
+    }
+
+    // Validate HTML structure on initialization
+    validateHTMLStructure() {
+        const requiredElements = [
+            'themeToggle', 'saveSettings', 'resetSettings', 
+            'importData', 'exportData', 'navList', 'settingsSections'
+        ];
+        
+        const missingElements = [];
+        requiredElements.forEach(id => {
+            if (!document.getElementById(id)) {
+                missingElements.push(id);
+            }
+        });
+
+        if (missingElements.length > 0) {
+            console.warn('Missing HTML elements:', missingElements);
+            this.showNotification(`Éléments manquants détectés: ${missingElements.join(', ')}`, 'warning');
+        }
+
+        return missingElements.length === 0;
+    }
+
+    // Enhanced input validation
+    validateInput(element, value) {
+        if (!element) return false;
+
+        const type = element.type || element.tagName.toLowerCase();
+        
+        switch (type) {
+            case 'number':
+                const num = parseFloat(value);
+                return !isNaN(num) && isFinite(num);
+            case 'email':
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+            case 'url':
+                try {
+                    new URL(value);
+                    return true;
+                } catch {
+                    return false;
+                }
+            case 'select':
+            case 'select-one':
+                return Array.from(element.options).some(option => option.value === value);
+            default:
+                return true;
+        }
+    }
+
+    // Safe HTML sanitization for innerHTML operations
+    sanitizeHTML(html) {
+        const div = document.createElement('div');
+        div.textContent = html;
+        return div.innerHTML;
+    }
+
+    // Utility function for safe DOM access
+    safeGetElement(id) {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.warn(`Element with id '${id}' not found`);
+        }
+        return element;
+    }
+
+    // Utility function for safe element operation
+    safeElementOperation(id, operation, fallback = null) {
+        const element = this.safeGetElement(id);
+        if (element && typeof operation === 'function') {
+            try {
+                return operation(element);
+            } catch (error) {
+                console.error(`Error operating on element '${id}':`, error);
+                return fallback;
+            }
+        }
+        return fallback;
+    }
+
     constructor() {
         this.settings = {};
         this.profiles = [];
@@ -107,7 +202,17 @@ class FingerprintGuardSettings {
     }
 
     async init() {
+        // Setup global error handling first
+        this.setupGlobalErrorHandling();
+        
         this.createUI();
+        
+        // Validate HTML structure after UI creation
+        const isValidStructure = this.validateHTMLStructure();
+        if (!isValidStructure) {
+            console.warn('HTML structure validation failed, some features may not work properly');
+        }
+        
         this.attachEventListeners();
         this.applyTheme();
         await this.loadData();
@@ -236,10 +341,14 @@ class FingerprintGuardSettings {
         this.createNavigation();
         this.createSections();
         this.attachModeNavigation();
+        
+        // Attach navigation listeners after initial creation
+        this.attachNavigationListeners();
     }
 
     createNavigation() {
-        const navList = document.getElementById('navList');
+        const navList = this.safeGetElement('navList');
+        if (!navList) return;
         const currentSections = this.sections[this.interfaceMode] || this.sections.simple;
         
         navList.innerHTML = ''; // Clear existing navigation
@@ -255,10 +364,14 @@ class FingerprintGuardSettings {
             `;
             navList.appendChild(listItem);
         });
+        
+        // Attach event listeners to the newly created navigation links
+        this.attachNavigationListeners();
     }
 
     createSections() {
-        const container = document.getElementById('settingsSections');
+        const container = this.safeGetElement('settingsSections');
+        if (!container) return;
         
         // Section Général
         container.appendChild(this.createGeneralSection());
@@ -345,14 +458,14 @@ class FingerprintGuardSettings {
         
         // Show only sections for current mode
         currentSectionIds.forEach(sectionId => {
-            const section = document.getElementById(`section-${sectionId}`);
+            const section = this.safeGetElement(`section-${sectionId}`);
             if (section) {
                 section.style.display = 'block';
             }
         });
         
         // Update navigation visibility
-        const settingsNav = document.getElementById('settingsNav');
+        const settingsNav = this.safeGetElement('settingsNav');
         if (this.interfaceMode === 'justprotectme') {
             // Hide navigation for Just Protect Me mode for simplicity
             settingsNav.style.display = 'none';
@@ -1013,6 +1126,24 @@ class FingerprintGuardSettings {
         return section;
     }
 
+    attachNavigationListeners() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            // Remove existing listeners first to avoid duplicates
+            const clonedLink = link.cloneNode(true);
+            link.parentNode.replaceChild(clonedLink, link);
+            
+            // Add new event listener
+            clonedLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                const sectionId = event.currentTarget.dataset.section;
+                if (sectionId) {
+                    this.showSection(sectionId);
+                }
+            });
+        });
+    }
+
     attachEventListeners() {
         // console.log('Attaching event listeners...');  // Retiré en production
         
@@ -1022,26 +1153,18 @@ class FingerprintGuardSettings {
         }
         this.eventListenersAttached = true;
         
-        const themeToggleButton = document.getElementById('themeToggle');
+        const themeToggleButton = this.safeGetElement('themeToggle');
         if (themeToggleButton) {
             themeToggleButton.addEventListener('click', () => this.toggleTheme());
         }
 
-        const saveButton = document.getElementById('saveSettings');
+        const saveButton = this.safeGetElement('saveSettings');
         if (saveButton) {
             saveButton.addEventListener('click', () => this.saveData());
         }
         
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.addEventListener('click', (event) => {
-                event.preventDefault();
-                const sectionId = event.currentTarget.dataset.section;
-                if (sectionId) {
-                    this.showSection(sectionId);
-                }
-            });
-        });
+        // Navigation listeners are now handled by attachNavigationListeners()
+        // which is called after each navigation recreation
 
         const inputs = document.querySelectorAll('.form-input, .form-select, .toggle-switch input[type="checkbox"]');
         inputs.forEach(input => {
@@ -1065,19 +1188,19 @@ class FingerprintGuardSettings {
             }
         });
         
-        const resetSettingsButton = document.getElementById('resetSettings');
+        const resetSettingsButton = this.safeGetElement('resetSettings');
         if (resetSettingsButton) {
             resetSettingsButton.addEventListener('click', () => this.resetToDefaults());
         }
 
-        const importButton = document.getElementById('importData');
-        const importFile = document.getElementById('importFile');
+        const importButton = this.safeGetElement('importData');
+        const importFile = this.safeGetElement('importFile');
         if (importButton && importFile) {
             importButton.addEventListener('click', () => importFile.click());
             importFile.addEventListener('change', (event) => this.importSettings(event));
         }
 
-        const exportButton = document.getElementById('exportData');
+        const exportButton = this.safeGetElement('exportData');
         if (exportButton) {
             exportButton.addEventListener('click', () => this.exportSettings());
         }
@@ -1091,13 +1214,13 @@ class FingerprintGuardSettings {
         // Just Protect Me functionality
         document.getElementById('activateProtection')?.addEventListener('click', () => this.activateJustProtectMe());
         document.getElementById('protectionLevel')?.addEventListener('change', (e) => this.updateJustProtectMeSettings(e));
-        document.getElementById('selectedOS')?.addEventListener('change', (e) => this.updateOSVersions(e));
-        document.getElementById('selectedBrowser')?.addEventListener('change', (e) => this.updateBrowserVersions(e));
+        document.getElementById('selectedOS')?.addEventListener('change', (e) => this.updateJustProtectMeSettings(e));
+        document.getElementById('selectedBrowser')?.addEventListener('change', (e) => this.updateJustProtectMeSettings(e));
         
         // Just Protect Me settings changes
         const justProtectMeInputs = ['protectionLevel', 'selectedOS', 'selectedOSVersion', 'selectedBrowser', 'selectedBrowserVersion'];
         justProtectMeInputs.forEach(inputId => {
-            const input = document.getElementById(inputId);
+            const input = this.safeGetElement(inputId);
             if (input) {
                 input.addEventListener('change', (e) => this.updateJustProtectMeSettings(e));
             }
@@ -1108,7 +1231,7 @@ class FingerprintGuardSettings {
         if (!this.theme) return; // N'applique le thème que s'il est défini
         
         document.body.setAttribute('data-theme', this.theme);
-        const themeToggle = document.getElementById('themeToggle');
+        const themeToggle = this.safeGetElement('themeToggle');
         if (themeToggle) {
             themeToggle.textContent = this.theme === 'dark' ? '☀️' : '🌙';
             themeToggle.title = this.theme === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre';
@@ -1168,7 +1291,7 @@ class FingerprintGuardSettings {
             if (key === 'advancedProtection' && typeof this.settings[key] === 'object' && this.settings[key] !== null) {
                 for (const subKey in this.settings[key]) {
                     const elementId = `advanced${subKey.charAt(0).toUpperCase() + subKey.slice(1)}`;
-                    const element = document.getElementById(elementId);
+                    const element = this.safeGetElement(elementId);
                     if (element && element.type === 'checkbox') {
                         element.checked = this.settings[key][subKey];
                         const toggleSwitch = element.closest('.toggle-switch');
@@ -1184,7 +1307,7 @@ class FingerprintGuardSettings {
                     }
                 }
             } else {
-                const element = document.getElementById(key);
+                const element = this.safeGetElement(key);
                 if (element) {
                     if (element.type === 'checkbox') {
                         element.checked = this.settings[key];
@@ -1205,18 +1328,70 @@ class FingerprintGuardSettings {
             }
         }
         
-        const statProfilesEl = document.getElementById('statProfiles');
+        const statProfilesEl = this.safeGetElement('statProfiles');
         if (statProfilesEl) statProfilesEl.textContent = this.stats.totalProfiles;
         
-        const statProtectionsEl = document.getElementById('statProtections');
+        const statProtectionsEl = this.safeGetElement('statProtections');
         if (statProtectionsEl) statProtectionsEl.textContent = this.countActiveProtections();
         
-        const statLastUpdateEl = document.getElementById('statLastUpdate');
+        const statLastUpdateEl = this.safeGetElement('statLastUpdate');
         if (statLastUpdateEl) statLastUpdateEl.textContent = this.stats.lastUpdate ? new Date(this.stats.lastUpdate).toLocaleString() : 'Jamais';
 
         this.updateSaveStatus();
         this.renderProfilesList();
         this.updateActiveProfileDisplay();
+        
+        // Initialize Just Protect Me selectors if they exist
+        this.initializeJustProtectMeSelectors();
+    }
+
+    initializeJustProtectMeSelectors() {
+        // Initialize Just Protect Me settings if they don't exist
+        if (!this.settings.justProtectMe) {
+            this.settings.justProtectMe = { ...this.defaultSettings.justProtectMe };
+        }
+
+        // Set values for Just Protect Me selectors
+        const justProtectSettings = this.settings.justProtectMe;
+        
+        // Set protection level
+        const protectionLevelEl = this.safeGetElement('protectionLevel');
+        if (protectionLevelEl) {
+            protectionLevelEl.value = justProtectSettings.protectionLevel || 'medium';
+        }
+
+        // Set OS
+        const selectedOSEl = this.safeGetElement('selectedOS');
+        if (selectedOSEl) {
+            selectedOSEl.value = justProtectSettings.selectedOS || 'Windows';
+            // Update OS version options based on selected OS
+            this.updateOSVersionOptions(selectedOSEl.value);
+        }
+
+        // Set OS version
+        const selectedOSVersionEl = this.safeGetElement('selectedOSVersion');
+        if (selectedOSVersionEl && justProtectSettings.selectedOSVersion) {
+            selectedOSVersionEl.value = justProtectSettings.selectedOSVersion;
+        }
+
+        // Set browser
+        const selectedBrowserEl = this.safeGetElement('selectedBrowser');
+        if (selectedBrowserEl) {
+            selectedBrowserEl.value = justProtectSettings.selectedBrowser || 'Chrome';
+            // Update browser version options based on selected browser
+            this.updateBrowserVersionOptions(selectedBrowserEl.value);
+        }
+
+        // Set browser version
+        const selectedBrowserVersionEl = this.safeGetElement('selectedBrowserVersion');
+        if (selectedBrowserVersionEl && justProtectSettings.selectedBrowserVersion) {
+            selectedBrowserVersionEl.value = justProtectSettings.selectedBrowserVersion;
+        }
+
+        // Update protection status
+        if (this.interfaceMode === 'justprotectme') {
+            this.updateProtectionStatus(justProtectSettings.autoProfile ? true : false);
+        }
     }
 
     startAutoSave() {
@@ -1226,14 +1401,15 @@ class FingerprintGuardSettings {
     }
 
     showSection(sectionId) {
-        const navList = document.getElementById('navList');
-        if (!navList || !document.getElementById(`section-${sectionId}`)) {
+        const navList = this.safeGetElement('navList');
+        const section = this.safeGetElement(`section-${sectionId}`);
+        if (!navList || !section) {
              console.warn(`Section or navList not found for ${sectionId}`);
              return;
         }
 
         document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
-        document.getElementById(`section-${sectionId}`).style.display = 'block';
+        section.style.display = 'block';
 
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         const activeLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
@@ -1293,6 +1469,13 @@ class FingerprintGuardSettings {
             }
         } else {
             value = element.value;
+        }
+
+        // Validate input value
+        if (!this.validateInput(element, value)) {
+            console.warn(`Invalid input value for ${key}:`, value);
+            this.showNotification(`Valeur invalide pour ${key}`, 'warning');
+            return;
         }
         
         const isAdvancedProtectionKey = key.startsWith('advanced');
@@ -1460,8 +1643,8 @@ class FingerprintGuardSettings {
     }
 
     updateSaveStatus() {
-        const saveStatusEl = document.getElementById('saveStatus');
-        const saveStatusTextEl = document.getElementById('saveStatusText');
+        const saveStatusEl = this.safeGetElement('saveStatus');
+        const saveStatusTextEl = this.safeGetElement('saveStatusText');
         if (!saveStatusEl || !saveStatusTextEl) return;
 
         if (this.isLoading) {
@@ -1477,8 +1660,8 @@ class FingerprintGuardSettings {
     }
 
     showNotification(message, type = 'info') {
-        const notificationEl = document.getElementById('notification');
-        const notificationTextEl = document.getElementById('notificationText');
+        const notificationEl = this.safeGetElement('notification');
+        const notificationTextEl = this.safeGetElement('notificationText');
         if (!notificationEl || !notificationTextEl) {
             console.warn("Notification elements not found.");
             return;
@@ -1504,7 +1687,7 @@ class FingerprintGuardSettings {
      * Rend la liste des profils dans l'interface utilisateur.
      */
     renderProfilesList() {
-        const profilesListEl = document.getElementById('profilesList');
+        const profilesListEl = this.safeGetElement('profilesList');
         if (!profilesListEl) return;
 
         profilesListEl.innerHTML = ''; // Clear existing list
@@ -1536,8 +1719,8 @@ class FingerprintGuardSettings {
      * Met à jour l'affichage du profil actif.
      */
     updateActiveProfileDisplay() {
-        const activeProfileInfoEl = document.getElementById('activeProfileInfo');
-        const activeProfileDetailsEl = document.getElementById('activeProfileDetails');
+        const activeProfileInfoEl = this.safeGetElement('activeProfileInfo');
+        const activeProfileDetailsEl = this.safeGetElement('activeProfileDetails');
         if (!activeProfileInfoEl || !activeProfileDetailsEl) return;
 
         if (this.settings?.useFixedProfile && this.currentProfile) {
@@ -1745,25 +1928,36 @@ class FingerprintGuardSettings {
             // Create a temporary settings object based on Just Protect Me choices
             const tempSettings = this.createJustProtectMeSettings(justProtectSettings);
             
-            // Use existing profile generation by temporarily modifying settings
-            const originalSettings = { ...this.settings };
+            // Use existing profile generation by temporarily modifying settings  
+            const originalSettings = JSON.parse(JSON.stringify(this.settings));
             Object.assign(this.settings, tempSettings);
             
             // Generate profile using existing infrastructure
             const response = await chrome.runtime.sendMessage({ 
-                type: 'generateNewProfile',
-                justProtectMe: true,
-                tempSettings: tempSettings
+                type: 'generateProfile',
+                protectionLevel: justProtectSettings.protectionLevel,
+                selectedOS: justProtectSettings.selectedOS,
+                selectedOSVersion: justProtectSettings.selectedOSVersion,
+                selectedBrowser: justProtectSettings.selectedBrowser,
+                selectedBrowserVersion: justProtectSettings.selectedBrowserVersion
             });
             
             // Restore original settings
-            Object.assign(this.settings, originalSettings);
+            this.settings = originalSettings;
             
             if (response?.success) {
+                // Initialize justProtectMe if it doesn't exist
+                if (!this.settings.justProtectMe) {
+                    this.settings.justProtectMe = {};
+                }
+                
                 // Mark this as Just Protect Me profile
-                this.settings.justProtectMe.autoProfile = response.data;
-                this.settings.activeProfileId = response.data.id;
+                this.settings.justProtectMe.autoProfile = response.profile;
+                this.settings.activeProfileId = response.profile.id;
                 this.settings.useFixedProfile = true;
+                
+                // Also set ghostMode for popup compatibility
+                this.settings.ghostMode = true;
                 
                 // Apply the profile immediately
                 await this.saveData();
@@ -1784,6 +1978,41 @@ class FingerprintGuardSettings {
             console.error('Error activating Just Protect Me:', error);
             this.showNotification('Erreur lors de l\'activation de la protection', 'error');
             this.updateProtectionStatus(false);
+        }
+    }
+
+    async deactivateJustProtectMe() {
+        try {
+            this.showNotification('Désactivation de la protection...', 'info');
+            
+            // Clear the Just Protect Me auto profile
+            if (this.settings.justProtectMe) {
+                this.settings.justProtectMe.autoProfile = null;
+            }
+            
+            // Disable fixed profile mode
+            this.settings.useFixedProfile = false;
+            this.settings.activeProfileId = null;
+            
+            // Also disable ghostMode for popup compatibility
+            this.settings.ghostMode = false;
+            
+            // Save the changes
+            await this.saveData();
+            
+            // Update UI to show protection is inactive
+            this.updateProtectionStatus(false);
+            
+            this.showNotification('Protection désactivée avec succès !', 'success');
+            
+            // Reload tabs if auto-reload is enabled to apply normal fingerprinting
+            if (this.settings.autoReloadAll || this.settings.autoReloadCurrent) {
+                chrome.runtime.sendMessage({ type: 'reloadTabs', all: this.settings.autoReloadAll });
+            }
+            
+        } catch (error) {
+            console.error('Error deactivating Just Protect Me:', error);
+            this.showNotification('Erreur lors de la désactivation de la protection', 'error');
         }
     }
 
@@ -1901,13 +2130,13 @@ class FingerprintGuardSettings {
         }
 
         // Update protection status if auto profile exists
-        if (this.settings.justProtectMe.autoProfile) {
+        if (this.settings.justProtectMe && this.settings.justProtectMe.autoProfile) {
             this.updateProtectionStatus(true);
         }
     }
 
     updateOSVersionOptions(selectedOS) {
-        const osVersionSelect = document.getElementById('selectedOSVersion');
+        const osVersionSelect = this.safeGetElement('selectedOSVersion');
         if (!osVersionSelect) return;
 
         const versionOptions = {
@@ -1943,11 +2172,13 @@ class FingerprintGuardSettings {
         ).join('');
 
         // Update the setting with the first option
-        this.settings.justProtectMe.selectedOSVersion = options[0].value;
+        if (this.settings.justProtectMe) {
+            this.settings.justProtectMe.selectedOSVersion = options[0].value;
+        }
     }
 
     updateBrowserVersionOptions(selectedBrowser) {
-        const browserVersionSelect = document.getElementById('selectedBrowserVersion');
+        const browserVersionSelect = this.safeGetElement('selectedBrowserVersion');
         if (!browserVersionSelect) return;
 
         const versionOptions = {
@@ -1986,12 +2217,14 @@ class FingerprintGuardSettings {
         ).join('');
 
         // Update the setting with the first option
-        this.settings.justProtectMe.selectedBrowserVersion = options[0].value;
+        if (this.settings.justProtectMe) {
+            this.settings.justProtectMe.selectedBrowserVersion = options[0].value;
+        }
     }
 
     updateProtectionStatus(isActive) {
-        const statusElement = document.getElementById('protectionStatus');
-        const activateButton = document.getElementById('activateProtection');
+        const statusElement = this.safeGetElement('protectionStatus');
+        const activateButton = this.safeGetElement('activateProtection');
         
         if (!statusElement) return;
 
@@ -2007,12 +2240,31 @@ class FingerprintGuardSettings {
                     <p><strong>OS:</strong> ${this.settings.justProtectMe?.selectedOS || 'Windows'} ${this.settings.justProtectMe?.selectedOSVersion || '10'}</p>
                     <p><strong>Navigateur:</strong> ${this.settings.justProtectMe?.selectedBrowser || 'Chrome'}</p>
                 </div>
+                <div class="protection-actions">
+                    <button id="regenerateProtection" class="btn secondary">
+                        <span>🔄</span>Régénérer Profil
+                    </button>
+                    <button id="deactivateProtection" class="btn danger">
+                        <span>🛑</span>Désactiver Protection
+                    </button>
+                </div>
             `;
 
+            // Add event listeners for the new buttons
+            const regenerateBtn = this.safeGetElement('regenerateProtection');
+            const deactivateBtn = this.safeGetElement('deactivateProtection');
+            
+            if (regenerateBtn) {
+                regenerateBtn.addEventListener('click', () => this.activateJustProtectMe());
+            }
+            
+            if (deactivateBtn) {
+                deactivateBtn.addEventListener('click', () => this.deactivateJustProtectMe());
+            }
+
+            // Hide the main activate button when protection is active
             if (activateButton) {
-                activateButton.innerHTML = '<span>🔄</span>Régénérer Profil';
-                activateButton.classList.remove('primary');
-                activateButton.classList.add('secondary');
+                activateButton.style.display = 'none';
             }
         } else {
             statusElement.innerHTML = `
@@ -2025,7 +2277,9 @@ class FingerprintGuardSettings {
                 </div>
             `;
 
+            // Show and update the main activate button when protection is inactive
             if (activateButton) {
+                activateButton.style.display = 'inline-flex';
                 activateButton.innerHTML = '<span>🚀</span>Protéger Maintenant';
                 activateButton.classList.remove('secondary');
                 activateButton.classList.add('primary');

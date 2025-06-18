@@ -37,6 +37,9 @@ class FingerprintGuard {
       'deleteProfile': this.handleDeleteProfile.bind(this),
       'switchProfile': this.handleSwitchProfile.bind(this),
       'generateNewProfile': this.handleGenerateNewProfile.bind(this),
+      'generateProfile': this.handleGenerateProfile.bind(this),
+      'deactivateJustProtectMe': this.handleDeactivateJustProtectMe.bind(this),
+      'regenerateProfile': this.handleRegenerateProfile.bind(this),
       'ping': this.handlePing.bind(this)
     };
 
@@ -319,7 +322,7 @@ class FingerprintGuard {
 
   async handleSwitchProfile(message, sender) {
     try {
-      const success = await this.profileManager.switchProfile(message.profileId);
+      const success = await this.profileManager.activate(message.profileId);
       if (success) {
         await this.spoofingService.applyCurrentProfile();
         this.updateStats();
@@ -382,6 +385,127 @@ class FingerprintGuard {
 
   async handlePing(message, sender) {
     return { success: true, pong: true, timestamp: Date.now() };
+  }
+
+  async handleGenerateProfile(request) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      const { protectionLevel, selectedOS, selectedOSVersion, selectedBrowser, selectedBrowserVersion } = request;
+
+      // Validate required parameters
+      if (!protectionLevel || !selectedOS || !selectedBrowser) {
+        throw new Error('Missing required parameters for profile generation');
+      }
+
+      // Save current settings
+      const originalSettings = this.settingsManager.getAll();
+
+      // Create temporary settings based on Just Protect Me parameters
+      const tempSettings = {
+        ...originalSettings,
+        // Map protection level to specific settings
+        advancedProtection: {
+          canvasFingerprinting: protectionLevel !== 'low',
+          webglFingerprinting: protectionLevel === 'high',
+          audioFingerprinting: protectionLevel !== 'low',
+          webrtcProtection: protectionLevel === 'high',
+          timezoneSpoof: protectionLevel !== 'low',
+          languageSpoof: protectionLevel === 'high',
+          screenResolutionSpoof: protectionLevel !== 'low'
+        },
+        // Set OS and browser preferences
+        platform: selectedOS === 'Windows' ? 'Win32' : 
+                  selectedOS === 'macOS' ? 'MacIntel' : 
+                  selectedOS === 'Linux' ? 'Linux x86_64' : 'Win32',
+        browser: selectedBrowser.toLowerCase(),
+        osVersion: selectedOSVersion,
+        browserVersion: selectedBrowserVersion
+      };
+
+      // Temporarily apply settings
+      await this.settingsManager.setMultiple(tempSettings);
+
+      // Generate profile using ProfileManager
+      const profileData = await this.profileManager.generate();
+
+      // Restore original settings
+      await this.settingsManager.setMultiple(originalSettings);
+
+      if (!profileData) {
+        throw new Error('Failed to generate profile');
+      }
+
+      return {
+        success: true,
+        profile: profileData
+      };
+    } catch (error) {
+      console.error('❌ Error generating profile:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleDeactivateJustProtectMe(message, sender) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      console.log('🛑 Deactivating Just Protect Me mode...');
+
+      // Deactivate ghost mode
+      await this.settingsManager.set('ghostMode', false);
+      
+      // Deactivate Just Protect Me auto profile
+      await this.settingsManager.set('justProtectMe.autoProfile', false);
+
+      // Update extension badge to reflect deactivated state
+      await this.updateExtensionBadge();
+
+      console.log('✅ Just Protect Me mode deactivated successfully');
+
+      return {
+        success: true,
+        message: 'Just Protect Me mode deactivated successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error deactivating Just Protect Me mode:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleRegenerateProfile(message, sender) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      console.log('🔄 Regenerating ghost mode profile...');
+
+      // Generate new profile
+      const profileData = await this.profileManager.generate();
+
+      if (!profileData) {
+        throw new Error('Failed to generate new profile');
+      }
+
+      // Update extension badge to reflect current state
+      await this.updateExtensionBadge();
+
+      console.log('✅ Ghost mode profile regenerated successfully');
+
+      return {
+        success: true,
+        profile: profileData,
+        message: 'Ghost mode profile regenerated successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error regenerating profile:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   // Gestionnaires d'événements
@@ -486,6 +610,37 @@ class FingerprintGuard {
     
     const settings = this.settingsManager.getAll();
     this.stats.activeProtections = Object.values(settings).filter(v => v === true).length;
+  }
+
+  async updateExtensionBadge() {
+    try {
+      if (!this.isInitialized) return;
+      
+      const settings = this.settingsManager.getAll();
+      const isGhostMode = settings.ghostMode;
+      const isJustProtectMe = settings['justProtectMe.autoProfile'];
+      
+      // Set badge text based on current state
+      let badgeText = '';
+      let badgeColor = '#666666'; // Default gray
+      
+      if (isGhostMode || isJustProtectMe) {
+        badgeText = '👻'; // Ghost emoji for ghost mode
+        badgeColor = '#9333ea'; // Purple for active ghost mode
+      } else if (this.stats.activeProtections > 0) {
+        badgeText = '🛡️'; // Shield emoji for normal protection
+        badgeColor = '#059669'; // Green for active protection
+      }
+      
+      // Update badge using chrome.action API (Manifest V3)
+      if (chrome.action) {
+        await chrome.action.setBadgeText({ text: badgeText });
+        await chrome.action.setBadgeBackgroundColor({ color: badgeColor });
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating extension badge:', error);
+    }
   }
 }
 

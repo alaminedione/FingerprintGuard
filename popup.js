@@ -44,6 +44,10 @@ class FingerprintGuardPopup {
     this.notification = document.getElementById('notification');
     this.notificationText = document.getElementById('notificationText');
     
+    // Ghost Mode Control Buttons
+    this.deactivateGhostButton = document.getElementById('deactivateGhostMode');
+    this.regenerateGhostButton = document.getElementById('regenerateGhostProfile');
+    
     // Statistics elements
     this.activeProtectionsEl = document.getElementById('activeProtections');
     this.blockedRequestsEl = document.getElementById('blockedRequests');
@@ -63,6 +67,15 @@ class FingerprintGuardPopup {
 
     if (this.settingsButton) {
       this.settingsButton.addEventListener('click', () => this.openSettings());
+    }
+
+    // Ghost Mode Control Buttons
+    if (this.deactivateGhostButton) {
+      this.deactivateGhostButton.addEventListener('click', () => this.deactivateGhostMode());
+    }
+
+    if (this.regenerateGhostButton) {
+      this.regenerateGhostButton.addEventListener('click', () => this.regenerateGhostProfile());
     }
 
     // Toggle switches avec support clavier
@@ -354,6 +367,60 @@ class FingerprintGuardPopup {
     setTimeout(() => {
       this.notification.classList.remove('show');
     }, 3000);
+  }
+
+  async deactivateGhostMode() {
+    try {
+      this.showLoading();
+      this.showNotification('Désactivation du mode fantôme...', 'info');
+
+      // Send message to background script to deactivate ghost mode
+      const response = await this.sendMessage({
+        type: 'deactivateJustProtectMe'
+      });
+
+      if (response && response.success) {
+        this.showNotification('Mode fantôme désactivé avec succès!', 'success');
+        // Reload settings to update UI
+        setTimeout(() => {
+          this.loadSettings();
+        }, 500);
+      } else {
+        throw new Error(response?.error || 'Échec de la désactivation');
+      }
+    } catch (error) {
+      console.error('Error deactivating ghost mode:', error);
+      this.showNotification('Erreur lors de la désactivation du mode fantôme', 'error');
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  async regenerateGhostProfile() {
+    try {
+      this.showLoading();
+      this.showNotification('Régénération du profil fantôme...', 'info');
+
+      // Send message to background script to regenerate profile
+      const response = await this.sendMessage({
+        type: 'regenerateProfile'
+      });
+
+      if (response && response.success) {
+        this.showNotification('Profil fantôme régénéré avec succès!', 'success');
+        // Small delay to show success message
+        setTimeout(() => {
+          this.loadSettings();
+        }, 1000);
+      } else {
+        throw new Error(response?.error || 'Échec de la régénération');
+      }
+    } catch (error) {
+      console.error('Error regenerating profile:', error);
+      this.showNotification('Erreur lors de la régénération du profil', 'error');
+    } finally {
+      this.hideLoading();
+    }
   }
 
   async sendMessage(message) {

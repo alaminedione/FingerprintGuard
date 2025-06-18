@@ -321,6 +321,42 @@
             opacity: 0.9;
         }
 
+        .ghost-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .ghost-actions .action-btn {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+        }
+
+        .ghost-deactivate {
+            background: rgba(245, 101, 101, 0.2) !important;
+            color: #f56565 !important;
+            border: 1px solid rgba(245, 101, 101, 0.3);
+        }
+
+        .ghost-deactivate:hover {
+            background: rgba(245, 101, 101, 0.3) !important;
+            transform: translateY(-1px);
+        }
+
+        .ghost-regenerate {
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .ghost-regenerate:hover {
+            background: rgba(255, 255, 255, 0.3) !important;
+            transform: translateY(-1px);
+        }
+
         .controls-section {
             background: var(--bg-primary);
             border-radius: var(--radius-lg);
@@ -660,6 +696,16 @@
             <div class="ghost-icon">👻</div>
             <div class="ghost-title">Mode Fantôme Actif</div>
             <div class="ghost-subtitle">Protection maximale activée</div>
+            <div class="ghost-actions">
+                <button id="deactivateGhostMode" class="action-btn secondary ghost-deactivate">
+                    <span>🛑</span>
+                    Désactiver
+                </button>
+                <button id="regenerateGhostProfile" class="action-btn primary ghost-regenerate">
+                    <span>🔄</span>
+                    Régénérer
+                </button>
+            </div>
         </div>
 
         <!-- Normal Controls -->

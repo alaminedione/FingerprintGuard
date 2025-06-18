@@ -1177,6 +1177,28 @@ body {
     margin-bottom: 0;
 }
 
+.protection-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.protection-actions .btn {
+    flex: 1;
+    min-width: 150px;
+}
+
+@media (max-width: 480px) {
+    .protection-actions {
+        flex-direction: column;
+    }
+    
+    .protection-actions .btn {
+        width: 100%;
+    }
+}
+
 /* Notification styles */
 .notification {
     position: fixed;
