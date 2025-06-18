@@ -20,6 +20,14 @@ class FingerprintGuardSettings {
             activeProtections: 0,
             lastUpdate: null
         };
+        
+        // Interface mode management
+        this.interfaceMode = 'simple'; // simple, advanced, justprotectme
+        this.interfaceModes = {
+            simple: { title: 'Paramètres Simples', icon: '⚙️', description: 'Interface épurée pour les débutants' },
+            advanced: { title: 'Paramètres Avancés', icon: '🔧', description: 'Configuration complète pour les utilisateurs expérimentés' },
+            justprotectme: { title: 'Just Protect Me', icon: '🛡️', description: 'Mode de protection automatique avec configuration minimale' }
+        };
 
         this.defaultSettings = {
             autoReloadAll: false,
@@ -53,25 +61,47 @@ class FingerprintGuardSettings {
             generateNewProfileOnStart: false,
             activeProfileId: null,
             profiles: [],
+            interfaceMode: 'simple', // Preference for interface mode
+            theme: 'light', // Theme preference
             advancedProtection: {
                 webrtc: true,
                 audio: true,
                 fonts: true,
                 timezone: true,
                 experimental: true
+            },
+            // Just Protect Me settings
+            justProtectMe: {
+                protectionLevel: 'medium', // low, medium, high
+                selectedOS: 'Windows',
+                selectedOSVersion: '10',
+                selectedBrowser: 'Chrome',
+                selectedBrowserVersion: 'latest',
+                autoProfile: null // Generated profile for session
             }
         };
 
-        this.sections = [
-            { id: 'general', title: 'Général', icon: '⚙️' },
-            { id: 'navigator', title: 'Navigateur', icon: '🧭' },
-            { id: 'useragent', title: 'User-Agent', icon: '🆔' },
-            { id: 'headers', title: 'En-têtes', icon: '📡' },
-            { id: 'screen', title: 'Écran', icon: '📺' },
-            { id: 'profiles', title: 'Profils', icon: '👥' },
-            { id: 'advanced', title: 'Avancé', icon: '🛡️' },
-            { id: 'stats', title: 'Statistiques', icon: '📊' }
-        ];
+        this.sections = {
+            simple: [
+                { id: 'general', title: 'Général', icon: '⚙️' },
+                { id: 'profiles', title: 'Profils', icon: '👥' },
+                { id: 'stats', title: 'Statistiques', icon: '📊' }
+            ],
+            advanced: [
+                { id: 'general', title: 'Général', icon: '⚙️' },
+                { id: 'navigator', title: 'Navigateur', icon: '🧭' },
+                { id: 'useragent', title: 'User-Agent', icon: '🆔' },
+                { id: 'headers', title: 'En-têtes', icon: '📡' },
+                { id: 'screen', title: 'Écran', icon: '📺' },
+                { id: 'profiles', title: 'Profils', icon: '👥' },
+                { id: 'advanced', title: 'Avancé', icon: '🛡️' },
+                { id: 'stats', title: 'Statistiques', icon: '📊' }
+            ],
+            justprotectme: [
+                { id: 'justprotect', title: 'Protection', icon: '🛡️' },
+                { id: 'stats', title: 'Statistiques', icon: '📊' }
+            ]
+        };
 
         this.init();
     }
@@ -83,7 +113,34 @@ class FingerprintGuardSettings {
         await this.loadData();
         this.updateUI();
         this.startAutoSave();
-        this.showSection('general');
+        
+        // Load interface mode from settings
+        if (this.settings.interfaceMode) {
+            this.interfaceMode = this.settings.interfaceMode;
+        }
+        
+        // Update mode navigation to reflect loaded mode
+        document.querySelectorAll('.mode-nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.mode === this.interfaceMode) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Update sections visibility and navigation
+        this.updateSectionsVisibility();
+        this.createNavigation();
+        
+        // Show first section of current mode
+        const currentSections = this.sections[this.interfaceMode] || this.sections.simple;
+        if (currentSections.length > 0) {
+            this.showSection(currentSections[0].id);
+        }
+        
+        // Initialize Just Protect Me status if in that mode
+        if (this.interfaceMode === 'justprotectme') {
+            this.updateProtectionStatus(this.settings.justProtectMe?.autoProfile ? true : false);
+        }
     }
 
     createUI() {
@@ -102,8 +159,36 @@ class FingerprintGuardSettings {
                     </div>
                 </header>
 
+                <!-- Interface Mode Navigation -->
+                <div class="interface-mode-nav">
+                    <div class="mode-nav-title">Mode d'Interface</div>
+                    <div class="mode-nav-buttons" id="modeNavButtons">
+                        <button class="mode-nav-btn active" data-mode="simple">
+                            <span class="mode-icon">⚙️</span>
+                            <div class="mode-info">
+                                <div class="mode-title">Paramètres Simples</div>
+                                <div class="mode-desc">Interface épurée pour les débutants</div>
+                            </div>
+                        </button>
+                        <button class="mode-nav-btn" data-mode="advanced">
+                            <span class="mode-icon">🔧</span>
+                            <div class="mode-info">
+                                <div class="mode-title">Paramètres Avancés</div>
+                                <div class="mode-desc">Configuration complète pour les utilisateurs expérimentés</div>
+                            </div>
+                        </button>
+                        <button class="mode-nav-btn" data-mode="justprotectme">
+                            <span class="mode-icon">🛡️</span>
+                            <div class="mode-info">
+                                <div class="mode-title">Just Protect Me</div>
+                                <div class="mode-desc">Mode de protection automatique avec configuration minimale</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="settings-grid">
-                    <nav class="settings-nav">
+                    <nav class="settings-nav" id="settingsNav">
                         <div class="nav-title">Navigation</div>
                         <ul class="nav-list" id="navList"></ul>
                     </nav>
@@ -150,12 +235,16 @@ class FingerprintGuardSettings {
 
         this.createNavigation();
         this.createSections();
+        this.attachModeNavigation();
     }
 
     createNavigation() {
         const navList = document.getElementById('navList');
+        const currentSections = this.sections[this.interfaceMode] || this.sections.simple;
         
-        this.sections.forEach(section => {
+        navList.innerHTML = ''; // Clear existing navigation
+        
+        currentSections.forEach(section => {
             const listItem = document.createElement('li');
             listItem.className = 'nav-item';
             listItem.innerHTML = `
@@ -192,8 +281,90 @@ class FingerprintGuardSettings {
         // Section Avancé
         container.appendChild(this.createAdvancedSection());
         
+        // Section Just Protect Me
+        container.appendChild(this.createJustProtectMeSection());
+        
         // Section Statistiques
         container.appendChild(this.createStatsSection());
+        
+        // Initially show sections based on current mode
+        this.updateSectionsVisibility();
+    }
+
+    attachModeNavigation() {
+        const modeButtons = document.querySelectorAll('.mode-nav-btn');
+        modeButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const mode = e.currentTarget.dataset.mode;
+                this.switchInterfaceMode(mode);
+            });
+        });
+    }
+
+    switchInterfaceMode(mode) {
+        if (this.interfaceMode === mode) return;
+        
+        this.interfaceMode = mode;
+        this.settings.interfaceMode = mode;
+        this.isDirty = true;
+        
+        // Update mode navigation
+        document.querySelectorAll('.mode-nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.mode === mode) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Update navigation and sections
+        this.createNavigation();
+        this.updateSectionsVisibility();
+        
+        // Show first section of new mode
+        const currentSections = this.sections[mode] || this.sections.simple;
+        if (currentSections.length > 0) {
+            this.showSection(currentSections[0].id);
+        }
+        
+        // Auto-save if enabled
+        if (this.autoSave) {
+            this.saveData();
+        }
+        
+        this.showNotification(`Mode ${this.interfaceModes[mode].title} activé`, 'success');
+    }
+
+    updateSectionsVisibility() {
+        const currentSections = this.sections[this.interfaceMode] || this.sections.simple;
+        const currentSectionIds = currentSections.map(s => s.id);
+        
+        // Hide all sections first
+        document.querySelectorAll('.settings-section').forEach(section => {
+            section.style.display = 'none';
+        });
+        
+        // Show only sections for current mode
+        currentSectionIds.forEach(sectionId => {
+            const section = document.getElementById(`section-${sectionId}`);
+            if (section) {
+                section.style.display = 'block';
+            }
+        });
+        
+        // Update navigation visibility
+        const settingsNav = document.getElementById('settingsNav');
+        if (this.interfaceMode === 'justprotectme') {
+            // Hide navigation for Just Protect Me mode for simplicity
+            settingsNav.style.display = 'none';
+            // Adjust grid layout
+            document.querySelector('.settings-grid').style.gridTemplateColumns = '1fr';
+        } else {
+            settingsNav.style.display = 'block';
+            // Restore grid layout
+            if (window.innerWidth >= 768) {
+                document.querySelector('.settings-grid').style.gridTemplateColumns = '300px 1fr';
+            }
+        }
     }
 
     createGeneralSection() {
@@ -243,6 +414,110 @@ class FingerprintGuardSettings {
                     Conseil
                 </div>
                 <p>Activez le rechargement automatique pour appliquer immédiatement vos modifications. Le rechargement de l'onglet actuel est plus rapide.</p>
+            </div>
+        `;
+        return section;
+    }
+
+    createJustProtectMeSection() {
+        const section = document.createElement('section');
+        section.className = 'settings-section';
+        section.id = 'section-justprotect';
+        section.innerHTML = `
+            <div class="section-header">
+                <div class="section-icon">🛡️</div>
+                <div>
+                    <h2 class="section-title">Just Protect Me</h2>
+                    <p class="section-description">Protection automatique avec configuration minimale</p>
+                </div>
+            </div>
+
+            <div class="just-protect-hero">
+                <div class="hero-content">
+                    <div class="hero-icon">🛡️</div>
+                    <h3>Protection Instantanée</h3>
+                    <p>Générez et activez un profil de protection en un clic</p>
+                </div>
+                <button id="activateProtection" class="btn primary large hero-btn">
+                    <span>🚀</span>
+                    Protéger Maintenant
+                </button>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="protectionLevel">
+                        Niveau de Protection
+                        <span class="label-badge">Recommandé: Moyen</span>
+                    </label>
+                    <select class="form-select" id="protectionLevel">
+                        <option value="low">Faible - Navigation rapide</option>
+                        <option value="medium" selected>Moyen - Équilibre optimal</option>
+                        <option value="high">Fort - Protection maximale</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="selectedOS">Système d'Exploitation</label>
+                    <select class="form-select" id="selectedOS">
+                        <option value="Windows" selected>Windows</option>
+                        <option value="macOS">macOS</option>
+                        <option value="Linux">Linux</option>
+                        <option value="Android">Android</option>
+                        <option value="iOS">iOS</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="selectedOSVersion">Version OS</label>
+                    <select class="form-select" id="selectedOSVersion">
+                        <option value="10" selected>Windows 10</option>
+                        <option value="11">Windows 11</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="selectedBrowser">Navigateur</label>
+                    <select class="form-select" id="selectedBrowser">
+                        <option value="Chrome" selected>Google Chrome</option>
+                        <option value="Firefox">Mozilla Firefox</option>
+                        <option value="Safari">Safari</option>
+                        <option value="Edge">Microsoft Edge</option>
+                        <option value="Opera">Opera</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="selectedBrowserVersion">Version Navigateur</label>
+                    <select class="form-select" id="selectedBrowserVersion">
+                        <option value="latest" selected>Dernière version</option>
+                        <option value="119">Version 119</option>
+                        <option value="118">Version 118</option>
+                        <option value="117">Version 117</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="protection-status" id="protectionStatus">
+                <div class="status-indicator inactive">
+                    <div class="status-dot"></div>
+                    <span>Protection Inactive</span>
+                </div>
+                <div class="status-info">
+                    <p>Cliquez sur "Protéger Maintenant" pour générer et activer un profil de protection automatique.</p>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="card-title">
+                    <span class="card-icon">💡</span>
+                    Comment ça marche
+                </div>
+                <ul>
+                    <li><strong>Génération Automatique:</strong> Un profil cohérent est créé selon vos choix</li>
+                    <li><strong>Session Temporaire:</strong> Le profil reste actif jusqu'au redémarrage du navigateur</li>
+                    <li><strong>Protection Complète:</strong> Toutes les protections nécessaires sont activées</li>
+                </ul>
             </div>
         `;
         return section;
@@ -812,6 +1087,21 @@ class FingerprintGuardSettings {
         document.getElementById('duplicateProfile')?.addEventListener('click', () => this.duplicateProfile());
         document.getElementById('deleteProfile')?.addEventListener('click', () => this.deleteSelectedProfile());
         document.getElementById('profilesList')?.addEventListener('click', (e) => this.handleProfileActions(e));
+        
+        // Just Protect Me functionality
+        document.getElementById('activateProtection')?.addEventListener('click', () => this.activateJustProtectMe());
+        document.getElementById('protectionLevel')?.addEventListener('change', (e) => this.updateJustProtectMeSettings(e));
+        document.getElementById('selectedOS')?.addEventListener('change', (e) => this.updateOSVersions(e));
+        document.getElementById('selectedBrowser')?.addEventListener('change', (e) => this.updateBrowserVersions(e));
+        
+        // Just Protect Me settings changes
+        const justProtectMeInputs = ['protectionLevel', 'selectedOS', 'selectedOSVersion', 'selectedBrowser', 'selectedBrowserVersion'];
+        justProtectMeInputs.forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('change', (e) => this.updateJustProtectMeSettings(e));
+            }
+        });
     }
 
     applyTheme() {
@@ -1441,6 +1731,305 @@ class FingerprintGuardSettings {
         } catch (error) {
             console.error('Erreur lors de l\'activation du profil:', error);
             this.showNotification(`Erreur: ${error.message}`, 'error');
+        }
+    }
+
+    // Just Protect Me Methods
+    async activateJustProtectMe() {
+        try {
+            this.showNotification('Génération du profil de protection...', 'info');
+            
+            // Get current Just Protect Me settings
+            const justProtectSettings = this.settings.justProtectMe || this.defaultSettings.justProtectMe;
+            
+            // Create a temporary settings object based on Just Protect Me choices
+            const tempSettings = this.createJustProtectMeSettings(justProtectSettings);
+            
+            // Use existing profile generation by temporarily modifying settings
+            const originalSettings = { ...this.settings };
+            Object.assign(this.settings, tempSettings);
+            
+            // Generate profile using existing infrastructure
+            const response = await chrome.runtime.sendMessage({ 
+                type: 'generateNewProfile',
+                justProtectMe: true,
+                tempSettings: tempSettings
+            });
+            
+            // Restore original settings
+            Object.assign(this.settings, originalSettings);
+            
+            if (response?.success) {
+                // Mark this as Just Protect Me profile
+                this.settings.justProtectMe.autoProfile = response.data;
+                this.settings.activeProfileId = response.data.id;
+                this.settings.useFixedProfile = true;
+                
+                // Apply the profile immediately
+                await this.saveData();
+                
+                // Update UI to show protection is active
+                this.updateProtectionStatus(true);
+                
+                this.showNotification('Protection activée avec succès !', 'success');
+                
+                // Reload tabs if auto-reload is enabled
+                if (this.settings.autoReloadAll || this.settings.autoReloadCurrent) {
+                    chrome.runtime.sendMessage({ type: 'reloadTabs', all: this.settings.autoReloadAll });
+                }
+            } else {
+                throw new Error(response?.error || 'Échec de la génération du profil');
+            }
+        } catch (error) {
+            console.error('Error activating Just Protect Me:', error);
+            this.showNotification('Erreur lors de l\'activation de la protection', 'error');
+            this.updateProtectionStatus(false);
+        }
+    }
+
+    createJustProtectMeSettings(justProtectSettings) {
+        const { protectionLevel, selectedOS, selectedOSVersion, selectedBrowser, selectedBrowserVersion } = justProtectSettings;
+        
+        // Base settings for profile generation
+        const settings = {
+            // OS/Platform settings
+            platform: this.getOSPlatform(selectedOS),
+            uaPlatform: selectedOS,
+            uaPlatformVersion: this.getOSPlatformVersion(selectedOS, selectedOSVersion),
+            
+            // Browser settings
+            browser: selectedBrowser,
+            minVersion: selectedBrowserVersion === 'latest' ? 119 : parseInt(selectedBrowserVersion) || 119,
+            maxVersion: selectedBrowserVersion === 'latest' ? 120 : parseInt(selectedBrowserVersion) || 119,
+            
+            // Language and hardware based on protection level
+            language: protectionLevel === 'low' ? 'en-US' : 'random',
+            hardwareConcurrency: protectionLevel === 'low' ? 4 : 0, // 0 = random
+            deviceMemory: protectionLevel === 'low' ? 8 : 0, // 0 = random
+            
+            // Screen spoofing based on protection level
+            spoofScreen: protectionLevel !== 'low',
+            spoofScreenResolution: 'random',
+            spoofDevicePixelRatio: 'random',
+            spoofDeviceType: this.getDeviceType(selectedOS),
+            
+            // Advanced protections based on level
+            advancedProtection: this.getProtectionLevelSettings(protectionLevel)
+        };
+
+        return settings;
+    }
+
+    getOSPlatform(os) {
+        const platformMap = {
+            'Windows': 'Win32',
+            'macOS': 'MacIntel',
+            'Linux': 'Linux x86_64',
+            'Android': 'Linux armv8l',
+            'iOS': 'iPhone'
+        };
+        return platformMap[os] || 'Win32';
+    }
+
+    getOSPlatformVersion(os, version) {
+        const versionMap = {
+            'Windows': version === '11' ? '15.0.0' : '10.0.0',
+            'macOS': '13.0.0',
+            'Linux': '6.0.0',
+            'Android': '13.0.0',
+            'iOS': '17.0.0'
+        };
+        return versionMap[os] || '10.0.0';
+    }
+
+    getDeviceType(os) {
+        return (os === 'Android' || os === 'iOS') ? 'mobile' : 'desktop';
+    }
+
+    getProtectionLevelSettings(level) {
+        const levelSettings = {
+            'low': {
+                webrtc: false,
+                audio: false,
+                fonts: false,
+                timezone: false,
+                experimental: false
+            },
+            'medium': {
+                webrtc: true,
+                audio: false,
+                fonts: true,
+                timezone: false,
+                experimental: false
+            },
+            'high': {
+                webrtc: true,
+                audio: true,
+                fonts: true,
+                timezone: true,
+                experimental: true
+            }
+        };
+
+        return levelSettings[level] || levelSettings['medium'];
+    }
+
+    updateJustProtectMeSettings(event) {
+        const { id, value } = event.target;
+        
+        if (!this.settings.justProtectMe) {
+            this.settings.justProtectMe = { ...this.defaultSettings.justProtectMe };
+        }
+
+        // Update the specific setting
+        this.settings.justProtectMe[id] = value;
+
+        // Update OS version options when OS changes
+        if (id === 'selectedOS') {
+            this.updateOSVersionOptions(value);
+        }
+
+        // Update browser version options when browser changes
+        if (id === 'selectedBrowser') {
+            this.updateBrowserVersionOptions(value);
+        }
+
+        // Mark as dirty for auto-save
+        this.isDirty = true;
+        if (this.autoSave) {
+            this.debouncedSave();
+        }
+
+        // Update protection status if auto profile exists
+        if (this.settings.justProtectMe.autoProfile) {
+            this.updateProtectionStatus(true);
+        }
+    }
+
+    updateOSVersionOptions(selectedOS) {
+        const osVersionSelect = document.getElementById('selectedOSVersion');
+        if (!osVersionSelect) return;
+
+        const versionOptions = {
+            'Windows': [
+                { value: '10', text: 'Windows 10' },
+                { value: '11', text: 'Windows 11' }
+            ],
+            'macOS': [
+                { value: '13', text: 'macOS Ventura (13)' },
+                { value: '14', text: 'macOS Sonoma (14)' },
+                { value: '12', text: 'macOS Monterey (12)' }
+            ],
+            'Linux': [
+                { value: 'Ubuntu 22.04', text: 'Ubuntu 22.04 LTS' },
+                { value: 'Ubuntu 20.04', text: 'Ubuntu 20.04 LTS' },
+                { value: 'Fedora 38', text: 'Fedora 38' }
+            ],
+            'Android': [
+                { value: '13', text: 'Android 13' },
+                { value: '12', text: 'Android 12' },
+                { value: '11', text: 'Android 11' }
+            ],
+            'iOS': [
+                { value: '17', text: 'iOS 17' },
+                { value: '16', text: 'iOS 16' },
+                { value: '15', text: 'iOS 15' }
+            ]
+        };
+
+        const options = versionOptions[selectedOS] || versionOptions['Windows'];
+        osVersionSelect.innerHTML = options.map(opt => 
+            `<option value="${opt.value}">${opt.text}</option>`
+        ).join('');
+
+        // Update the setting with the first option
+        this.settings.justProtectMe.selectedOSVersion = options[0].value;
+    }
+
+    updateBrowserVersionOptions(selectedBrowser) {
+        const browserVersionSelect = document.getElementById('selectedBrowserVersion');
+        if (!browserVersionSelect) return;
+
+        const versionOptions = {
+            'Chrome': [
+                { value: 'latest', text: 'Dernière version' },
+                { value: '119', text: 'Version 119' },
+                { value: '118', text: 'Version 118' },
+                { value: '117', text: 'Version 117' }
+            ],
+            'Firefox': [
+                { value: 'latest', text: 'Dernière version' },
+                { value: '119', text: 'Version 119' },
+                { value: '118', text: 'Version 118' },
+                { value: '117', text: 'Version 117' }
+            ],
+            'Safari': [
+                { value: 'latest', text: 'Dernière version' },
+                { value: '17', text: 'Version 17' },
+                { value: '16', text: 'Version 16' }
+            ],
+            'Edge': [
+                { value: 'latest', text: 'Dernière version' },
+                { value: '119', text: 'Version 119' },
+                { value: '118', text: 'Version 118' }
+            ],
+            'Opera': [
+                { value: 'latest', text: 'Dernière version' },
+                { value: '105', text: 'Version 105' },
+                { value: '104', text: 'Version 104' }
+            ]
+        };
+
+        const options = versionOptions[selectedBrowser] || versionOptions['Chrome'];
+        browserVersionSelect.innerHTML = options.map(opt => 
+            `<option value="${opt.value}">${opt.text}</option>`
+        ).join('');
+
+        // Update the setting with the first option
+        this.settings.justProtectMe.selectedBrowserVersion = options[0].value;
+    }
+
+    updateProtectionStatus(isActive) {
+        const statusElement = document.getElementById('protectionStatus');
+        const activateButton = document.getElementById('activateProtection');
+        
+        if (!statusElement) return;
+
+        if (isActive) {
+            statusElement.innerHTML = `
+                <div class="status-indicator active">
+                    <div class="status-dot"></div>
+                    <span>Protection Active</span>
+                </div>
+                <div class="status-info">
+                    <p>Votre profil de protection est actif et protège votre navigation.</p>
+                    <p><strong>Niveau:</strong> ${this.settings.justProtectMe?.protectionLevel || 'medium'}</p>
+                    <p><strong>OS:</strong> ${this.settings.justProtectMe?.selectedOS || 'Windows'} ${this.settings.justProtectMe?.selectedOSVersion || '10'}</p>
+                    <p><strong>Navigateur:</strong> ${this.settings.justProtectMe?.selectedBrowser || 'Chrome'}</p>
+                </div>
+            `;
+
+            if (activateButton) {
+                activateButton.innerHTML = '<span>🔄</span>Régénérer Profil';
+                activateButton.classList.remove('primary');
+                activateButton.classList.add('secondary');
+            }
+        } else {
+            statusElement.innerHTML = `
+                <div class="status-indicator inactive">
+                    <div class="status-dot"></div>
+                    <span>Protection Inactive</span>
+                </div>
+                <div class="status-info">
+                    <p>Cliquez sur "Protéger Maintenant" pour générer et activer un profil de protection automatique.</p>
+                </div>
+            `;
+
+            if (activateButton) {
+                activateButton.innerHTML = '<span>🚀</span>Protéger Maintenant';
+                activateButton.classList.remove('secondary');
+                activateButton.classList.add('primary');
+            }
         }
     }
 }

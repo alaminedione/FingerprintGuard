@@ -36,6 +36,7 @@ class FingerprintGuard {
       'createProfile': this.handleCreateProfile.bind(this),
       'deleteProfile': this.handleDeleteProfile.bind(this),
       'switchProfile': this.handleSwitchProfile.bind(this),
+      'generateNewProfile': this.handleGenerateNewProfile.bind(this),
       'ping': this.handlePing.bind(this)
     };
 
@@ -325,6 +326,56 @@ class FingerprintGuard {
       }
       return { success };
     } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleGenerateNewProfile(message, sender) {
+    try {
+      // If this is for Just Protect Me, temporarily apply the temp settings
+      if (message.justProtectMe && message.tempSettings) {
+        // Backup current settings
+        const originalSettings = this.settingsManager.getAll();
+        
+        // Apply temp settings for profile generation
+        for (const [key, value] of Object.entries(message.tempSettings)) {
+          await this.settingsManager.set(key, value);
+        }
+        
+        // Generate profile with temp settings
+        const profile = this.profileManager.generate();
+        
+        // Add Just Protect Me metadata
+        profile.metadata = {
+          ...profile.metadata,
+          justProtectMe: true,
+          protectionLevel: message.tempSettings.advancedProtection ? 'high' : 'medium',
+          generatedAt: new Date().toISOString()
+        };
+        
+        // Save the profile
+        await this.profileManager.save(profile);
+        
+        // Activate the profile
+        await this.profileManager.activate(profile.id);
+        await this.spoofingService.applyCurrentProfile();
+        
+        // Restore original settings
+        for (const [key, value] of Object.entries(originalSettings)) {
+          await this.settingsManager.set(key, value);
+        }
+        
+        this.updateStats();
+        return { success: true, data: profile };
+      } else {
+        // Regular profile generation
+        const profile = this.profileManager.generate();
+        await this.profileManager.save(profile);
+        this.updateStats();
+        return { success: true, data: profile };
+      }
+    } catch (error) {
+      console.error('❌ Error generating new profile:', error);
       return { success: false, error: error.message };
     }
   }
