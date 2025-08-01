@@ -1,6 +1,6 @@
 /**
- * Gestionnaire centralisé des paramètres pour FingerprintGuard v2.1.0
- * Gère le chargement, la validation et la sauvegarde des paramètres
+ * Gestionnaire centralisé des paramètres pour FingerprintGuard v3.0.0
+ * Gère le chargement, la validation, la migration et la sauvegarde des paramètres
  */
 
 import { DEFAULT_SETTINGS, VALIDATION_RULES } from '../config/defaults.js';
@@ -18,7 +18,17 @@ export class SettingsManager {
   async initialize() {
     try {
       console.log('🔧 Initializing SettingsManager...');
-      const stored = await chrome.storage.sync.get(Object.keys(DEFAULT_SETTINGS));
+      let stored = await chrome.storage.sync.get(null); // Charger tous les paramètres
+
+      // Logique de migration si nécessaire
+      if (this.isOldVersion(stored)) {
+        console.log('🔄 Migrating old settings to new structure...');
+        stored = this.migrateSettings(stored);
+        await chrome.storage.sync.clear(); // Effacer les anciens paramètres
+        await chrome.storage.sync.set(stored); // Sauvegarder les nouveaux
+        console.log('✅ Migration complete!');
+      }
+
       this.settings = { ...DEFAULT_SETTINGS, ...stored };
       this.settings = this.validateSettings(this.settings);
       console.log('✅ SettingsManager initialized with settings:', this.settings);
@@ -31,11 +41,71 @@ export class SettingsManager {
   }
 
   /**
+   * Vérifie si les paramètres stockés sont d'une ancienne version
+   * @param {object} storedSettings - Paramètres stockés
+   * @returns {boolean} Vrai si les paramètres sont d'une ancienne version
+   */
+  isOldVersion(storedSettings) {
+    return storedSettings.hasOwnProperty('ghostMode') || storedSettings.hasOwnProperty('spoofBrowser');
+  }
+
+  /**
+   * Migre les anciens paramètres vers la nouvelle structure
+   * @param {object} oldSettings - Anciens paramètres
+   * @returns {object} Nouveaux paramètres migrés
+   */
+  migrateSettings(oldSettings) {
+    const newSettings = { ...DEFAULT_SETTINGS };
+
+    // Définir le mode de protection en fonction des anciens paramètres
+    if (oldSettings.ghostMode) {
+      newSettings.protectionMode = 'ghost';
+    } else {
+      newSettings.protectionMode = 'advanced'; // Par défaut, l'ancien mode est 'advanced'
+    }
+
+    // Migrer les paramètres avancés
+    if (oldSettings.advancedProtection) {
+        newSettings.advancedSettings.webrtc = oldSettings.advancedProtection.webrtc;
+        newSettings.advancedSettings.audio = oldSettings.advancedProtection.audio;
+        newSettings.advancedSettings.fonts = oldSettings.advancedProtection.fonts;
+        newSettings.advancedSettings.timezone = oldSettings.advancedProtection.timezone;
+        newSettings.advancedSettings.experimental = oldSettings.advancedProtection.experimental;
+    }
+    newSettings.advancedSettings.spoofBrowser = oldSettings.spoofBrowser;
+    newSettings.advancedSettings.spoofCanvas = oldSettings.spoofCanvas;
+    newSettings.advancedSettings.spoofScreen = oldSettings.spoofScreen;
+    newSettings.advancedSettings.blockImages = oldSettings.blockImages;
+    newSettings.advancedSettings.blockJS = oldSettings.blockJS;
+
+    // Migrer les paramètres de profil
+    Object.keys(newSettings.profile).forEach(key => {
+      if (oldSettings.hasOwnProperty(key)) {
+        newSettings.profile[key] = oldSettings[key];
+      }
+    });
+
+    // Migrer les autres paramètres
+    newSettings.autoReloadAll = oldSettings.autoReloadAll;
+    newSettings.autoReloadCurrent = oldSettings.autoReloadCurrent;
+    newSettings.useFixedProfile = oldSettings.useFixedProfile;
+    newSettings.generateNewProfileOnStart = oldSettings.generateNewProfileOnStart;
+    newSettings.activeProfileId = oldSettings.activeProfileId;
+    newSettings.profiles = oldSettings.profiles;
+    newSettings.theme = oldSettings.theme;
+
+    return newSettings;
+  }
+
+  /**
    * Obtient une valeur de paramètre
-   * @param {string} key - Clé du paramètre
+   * @param {string} key - Clé du paramètre (peut être imbriquée, ex: 'profile.platform')
    * @returns {*} Valeur du paramètre
    */
   get(key) {
+    if (key.includes('.')) {
+      return key.split('.').reduce((o, i) => o[i], this.settings);
+    }
     return this.settings[key];
   }
 
@@ -49,19 +119,34 @@ export class SettingsManager {
 
   /**
    * Met à jour un paramètre
-   * @param {string} key - Clé du paramètre
+   * @param {string} key - Clé du paramètre (peut être imbriquée)
    * @param {*} value - Nouvelle valeur
    * @returns {Promise<boolean>} Succès de la mise à jour
    */
   async set(key, value) {
-    if (!Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
-      console.warn(`⚠️ Unknown setting: ${key}`);
-      return false;
-    }
-
     try {
-      this.settings[key] = value;
-      await chrome.storage.sync.set({ [key]: value });
+      let settingsToUpdate = this.settings;
+      const keys = key.split('.');
+      const lastKey = keys.pop();
+      
+      for (const k of keys) {
+        settingsToUpdate = settingsToUpdate[k];
+      }
+      
+      settingsToUpdate[lastKey] = value;
+
+      // Pour la sauvegarde, nous devons reconstruire l'objet à partir de la clé complète
+      const updateObject = {};
+      if (keys.length > 0) {
+        // Recrée l'objet imbriqué pour la sauvegarde
+        const topLevelKey = keys[0];
+        updateObject[topLevelKey] = this.settings[topLevelKey];
+        await chrome.storage.sync.set({ [topLevelKey]: this.settings[topLevelKey] });
+      } else {
+        updateObject[key] = value;
+        await chrome.storage.sync.set({ [key]: value });
+      }
+
       this.notifyListeners(key, value);
       console.log(`✅ Setting updated: ${key} = ${value}`);
       return true;
@@ -82,33 +167,17 @@ export class SettingsManager {
       return [];
     }
 
-    const validUpdates = {};
     const updatedKeys = [];
 
-    // Valider tous les paramètres avant de les appliquer
     Object.keys(updates).forEach(key => {
-      if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
-        validUpdates[key] = updates[key];
-        this.settings[key] = updates[key];
+        this.set(key, updates[key]); // Utilise la nouvelle logique `set` pour gérer les clés imbriquées
         updatedKeys.push(key);
-      } else {
-        console.warn(`⚠️ Ignoring unknown setting: ${key}`);
-      }
     });
 
-    try {
-      if (Object.keys(validUpdates).length > 0) {
-        await chrome.storage.sync.set(validUpdates);
-        updatedKeys.forEach(key => {
-          this.notifyListeners(key, validUpdates[key]);
-        });
-        console.log('✅ Multiple settings updated:', updatedKeys);
-      }
-      return updatedKeys;
-    } catch (error) {
-      console.error('❌ Error updating multiple settings:', error);
-      return [];
-    }
+    // La sauvegarde est déjà gérée dans `set`, donc pas besoin de `chrome.storage.sync.set` ici
+
+    console.log('✅ Multiple settings updated:', updatedKeys);
+    return updatedKeys;
   }
 
   /**
@@ -142,41 +211,39 @@ export class SettingsManager {
 
     const validated = { ...settings };
 
-    // Valider les types booléens
-    VALIDATION_RULES.booleanFields.forEach(field => {
-      if (validated[field] !== undefined && typeof validated[field] !== 'boolean') {
-        console.warn(`⚠️ Invalid boolean field ${field}, resetting to default`);
-        validated[field] = DEFAULT_SETTINGS[field];
-      }
-    });
+    // Valider les champs en utilisant les règles de VALIDATION_RULES
+    Object.keys(VALIDATION_RULES).forEach(type => {
+        VALIDATION_RULES[type].forEach(field => {
+            const value = this.get(field); // Utilise `get` pour les clés imbriquées
+            const defaultValue = this.get(field, DEFAULT_SETTINGS);
 
-    // Valider les nombres non-négatifs
-    VALIDATION_RULES.numberFields.forEach(field => {
-      if (validated[field] !== undefined) {
-        const value = Number(validated[field]);
-        if (isNaN(value) || value < 0) {
-          console.warn(`⚠️ Invalid number field ${field}, resetting to default`);
-          validated[field] = DEFAULT_SETTINGS[field];
-        } else {
-          validated[field] = value;
-        }
-      }
-    });
+            let isValid = false;
+            switch (type) {
+                case 'booleanFields':
+                    isValid = typeof value === 'boolean';
+                    break;
+                case 'numberFields':
+                    isValid = typeof value === 'number' && !isNaN(value) && value >= 0;
+                    break;
+                case 'stringFields':
+                    isValid = typeof value === 'string';
+                    break;
+            }
 
-    // Valider les chaînes de caractères
-    VALIDATION_RULES.stringFields.forEach(field => {
-      if (validated[field] !== undefined && typeof validated[field] !== 'string') {
-        console.warn(`⚠️ Invalid string field ${field}, resetting to default`);
-        validated[field] = DEFAULT_SETTINGS[field];
-      }
+            if (!isValid) {
+                console.warn(`⚠️ Invalid field ${field}, resetting to default`);
+                this.set(field, defaultValue); // Utilise `set` pour les clés imbriquées
+            }
+        });
     });
 
     // Validation spéciale pour la résolution d'écran
-    if (validated.spoofScreenResolution && validated.spoofScreenResolution !== 'random') {
-      const resolutionValidation = this.validateScreenResolution(validated.spoofScreenResolution);
+    const screenResolution = this.get('profile.spoofScreenResolution');
+    if (screenResolution && screenResolution !== 'random') {
+      const resolutionValidation = this.validateScreenResolution(screenResolution);
       if (!resolutionValidation.valid) {
-        console.warn(`⚠️ Résolution d'écran invalide '${validated.spoofScreenResolution}'. ${resolutionValidation.reason}`);
-        validated.spoofScreenResolution = DEFAULT_SETTINGS.spoofScreenResolution;
+        console.warn(`⚠️ Résolution d'écran invalide '${screenResolution}'. ${resolutionValidation.reason}`);
+        this.set('profile.spoofScreenResolution', DEFAULT_SETTINGS.profile.spoofScreenResolution);
       }
     }
 
@@ -254,7 +321,7 @@ export class SettingsManager {
     return {
       settings: this.settings,
       exportedAt: new Date().toISOString(),
-      version: '2.1.0',
+      version: '3.0.0', // Mise à jour de la version
       type: 'fingerprintguard-settings'
     };
   }

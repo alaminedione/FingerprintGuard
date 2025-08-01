@@ -7,87 +7,86 @@
  * - de la réinitialisation des paramètres
  */
 export const DEFAULT_SETTINGS = {
-  // Modes principaux
-  ghostMode: false,
-  spoofBrowser: false,
-  spoofCanvas: true,
-  spoofScreen: true,
-  blockImages: false,
-  blockJS: false,
-  
-  // Rechargement automatique
-  autoReloadAll: false,
-  autoReloadCurrent: true,
-  
-  // Configuration Navigateur
-  platform: 'random',
-  language: 'random',
-  hardwareConcurrency: 0, // 0 = aléatoire
-  deviceMemory: 0, // 0 = aléatoire
-  minVersion: 0, // version min pour user-agent
-  maxVersion: 0, // version max pour user-agent
-  
-  // User-Agent Data
-  uaPlatform: 'random',
-  uaPlatformVersion: 'random',
-  uaArchitecture: 'random',
-  uaBitness: 'random',
-  uaWow64: 'random',
-  uaModel: 'random',
-  uaFullVersion: 'random',
-  browser: 'random',
-  
-  // En-têtes
-  secChUa: 'random',
-  secChUaMobile: 'random',
-  secChUaPlatform: 'random',
-  secChUaFullVersion: 'random',
-  secChUaPlatformVersion: 'random',
-  hDeviceMemory: 0, // 0 = aléatoire
-  contentEncoding: 'random',
-  
-  // Écran
-  spoofDeviceType: 'random',
-  spoofDevicePixelRatio: 'random',
-  spoofScreenResolution: 'random',
-  
-  // Profiles
-  useFixedProfile: false,
-  generateNewProfileOnStart: false,
-  activeProfileId: null,
-  profiles: [],
-  theme: 'light', // Nouveau paramètre pour le thème unifié
-  
-  // Protection avancée
-  advancedProtection: {
+  // Mode de protection principal
+  protectionMode: 'advanced', // 'lucky', 'advanced', 'ghost'
+
+  // Paramètres pour le mode 'advanced'
+  advancedSettings: {
+    spoofBrowser: true,
+    spoofCanvas: true,
+    spoofScreen: true,
     webrtc: true,
     audio: true,
     fonts: true,
     timezone: true,
-    experimental: true
-  }
+    experimental: true,
+    blockImages: false,
+    blockJS: false,
+  },
+
+  // Rechargement automatique
+  autoReloadAll: false,
+  autoReloadCurrent: true,
+
+  // Configuration du profil (pour le mode 'advanced')
+  profile: {
+    platform: 'random',
+    language: 'random',
+    hardwareConcurrency: 0, // 0 = aléatoire
+    deviceMemory: 0, // 0 = aléatoire
+    minVersion: 0, // version min pour user-agent
+    maxVersion: 0, // version max pour user-agent
+    uaPlatform: 'random',
+    uaPlatformVersion: 'random',
+    uaArchitecture: 'random',
+    uaBitness: 'random',
+    uaWow64: 'random',
+    uaModel: 'random',
+    uaFullVersion: 'random',
+    browser: 'random',
+    secChUa: 'random',
+    secChUaMobile: 'random',
+    secChUaPlatform: 'random',
+    secChUaFullVersion: 'random',
+    secChUaPlatformVersion: 'random',
+    hDeviceMemory: 0, // 0 = aléatoire
+    contentEncoding: 'random',
+    spoofDeviceType: 'random',
+    spoofDevicePixelRatio: 'random',
+    spoofScreenResolution: 'random',
+  },
+  
+  // Gestion des profils
+  useFixedProfile: false,
+  generateNewProfileOnStart: true, // Activé par défaut pour 'advanced'
+  activeProfileId: null,
+  profiles: [],
+  theme: 'light',
 };
 
 export const VALIDATION_RULES = {
-  booleanFields: [
-    'ghostMode', 'spoofBrowser', 'spoofCanvas', 'spoofScreen', 
-    'blockImages', 'blockJS', 'autoReloadAll', 'autoReloadCurrent',
-    'useFixedProfile', 'generateNewProfileOnStart'
-  ],
-  
-  numberFields: [
-    'hardwareConcurrency', 'deviceMemory', 'minVersion', 'maxVersion',
-    'hDeviceMemory'
-  ],
-  
   stringFields: [
-    'platform', 'language', 'resolution', 'theme',
-    'uaPlatform', 'uaPlatformVersion', 'uaArchitecture', 'uaBitness',
-    'uaWow64', 'uaModel', 'uaFullVersion', 'browser',
-    'secChUa', 'secChUaMobile', 'secChUaPlatform', 'secChUaFullVersion',
-    'secChUaPlatformVersion', 'contentEncoding', 
-    'spoofDeviceType', 'spoofDevicePixelRatio', 'spoofScreenResolution'
-  ]
+    'protectionMode', 'theme',
+    // Champs de profil
+    'profile.platform', 'profile.language', 'profile.resolution', 
+    'profile.uaPlatform', 'profile.uaPlatformVersion', 'profile.uaArchitecture', 'profile.uaBitness',
+    'profile.uaWow64', 'profile.uaModel', 'profile.uaFullVersion', 'profile.browser',
+    'profile.secChUa', 'profile.secChUaMobile', 'profile.secChUaPlatform', 'profile.secChUaFullVersion',
+    'profile.secChUaPlatformVersion', 'profile.contentEncoding', 
+    'profile.spoofDeviceType', 'profile.spoofDevicePixelRatio', 'profile.spoofScreenResolution'
+  ],
+  booleanFields: [
+    'autoReloadAll', 'autoReloadCurrent', 'useFixedProfile', 'generateNewProfileOnStart',
+    // Champs de paramètres avancés
+    'advancedSettings.spoofBrowser', 'advancedSettings.spoofCanvas', 'advancedSettings.spoofScreen', 
+    'advancedSettings.webrtc', 'advancedSettings.audio', 'advancedSettings.fonts', 
+    'advancedSettings.timezone', 'advancedSettings.experimental', 'advancedSettings.blockImages', 'advancedSettings.blockJS'
+  ],
+  numberFields: [
+    // Champs de profil
+    'profile.hardwareConcurrency', 'profile.deviceMemory', 'profile.minVersion', 'profile.maxVersion',
+    'profile.hDeviceMemory'
+  ],
 };
 
 /**
