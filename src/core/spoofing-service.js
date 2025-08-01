@@ -71,7 +71,7 @@ export class SpoofingService {
     allProtectionsOn.blockJS = false;
     allProtectionsOn.blockImages = false;
 
-    await this.applyAllSpoofing(tabId, allProtectionsOn, settings.profile);
+    await this.applyAllSpoofing(tabId, allProtectionsOn, this.profileManager.getLuckyModeProfile().data);
   }
 
   /**

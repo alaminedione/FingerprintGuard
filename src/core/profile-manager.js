@@ -10,6 +10,7 @@ export class ProfileManager {
     this.settingsManager = settingsManager;
     this.profiles = []; // Pour les profils fixes sauvegardés
     this.sessionProfile = null; // Pour le profil généré par session
+    this.luckyModeProfile = null; // Pour le profil du mode Lucky
   }
 
   /**
@@ -25,6 +26,19 @@ export class ProfileManager {
     // Gérer le profil de session
     await this.handleSessionProfile();
     console.log(`✅ ProfileManager initialized with ${this.profiles.length} saved profiles.`);
+  }
+
+  /**
+   * Récupère ou génère le profil pour le mode "I'm Feeling Lucky".
+   * Ce profil est persistant pour la durée de la session du navigateur.
+   * @returns {object} Le profil du mode Lucky.
+   */
+  getLuckyModeProfile() {
+    if (!this.luckyModeProfile) {
+      console.log('🍀 Generating new Lucky Mode profile...');
+      this.luckyModeProfile = this.generateSessionProfile(); // Réutilise la logique de génération de profil de session
+    }
+    return this.luckyModeProfile;
   }
 
   /**
