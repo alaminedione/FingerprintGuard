@@ -22,61 +22,63 @@
             </div>
         </header>
 
-        <!-- Conteneur pour le message des modes non-avancés -->
-        <div id="non-advanced-mode-message" style="display: none;">
+        <div id="non-advanced-mode-message" class="non-advanced-view" style="display: none;">
             <div class="info-card">
-                <div class="card-title">
-                    <span id="mode-icon" class="card-icon"></span>
-                    <span id="mode-name"></span> est Actif
+                <div class="card-header">
+                    <span id="mode-icon" class="card-icon-large"></span>
+                    <h2 id="mode-name"></h2>
                 </div>
-                <p>Les paramètres avancés ne sont pas disponibles dans ce mode. Pour personnaliser les options, veuillez passer au mode "Avancé" depuis la fenêtre popup de l'extension.</p>
+                <p class="card-content">Les paramètres avancés ne sont pas disponibles dans ce mode. Pour personnaliser les options, veuillez passer au mode "Avancé" depuis la fenêtre popup de l'extension.</p>
             </div>
         </div>
 
-        <!-- Conteneur pour les paramètres avancés -->
-        <div id="advanced-settings-container">
+        <div id="advanced-settings-container" style="display: none;">
             <div class="settings-grid">
                 <nav class="settings-nav" id="settingsNav">
                     <ul class="nav-list">
-                        <li><a href="#" class="nav-link active" data-section="protections">Protections</a></li>
-                        <li><a href="#profile" class="nav-link" data-section="profile">Profil d'Empreinte</a></li>
-                        <li><a href="#general" class="nav-link" data-section="general">Général</a></li>
+                        <li><a href="#" class="nav-link active" data-section="protections">🛡️ Protections</a></li>
+                        <li><a href="#profile" class="nav-link" data-section="profile">👤 Profil d'Empreinte</a></li>
+                        <li><a href="#general" class="nav-link" data-section="general">⚙️ Général</a></li>
                     </ul>
                 </nav>
 
                 <main class="settings-content">
-                    <!-- Section Protections -->
                     <section id="protections-section" class="settings-section active">
-                        <h3>Protections Avancées</h3>
-                        <div id="advanced-settings-fields" class="form-grid"></div>
+                        <div id="advanced-settings-fields"></div>
                     </section>
 
-                    <!-- Section Profil -->
                     <section id="profile-section" class="settings-section">
-                        <h3>Profil d'Empreinte Digitale</h3>
-                        <div id="profile-settings-fields" class="form-grid"></div>
+                        <div id="profile-settings-fields"></div>
                     </section>
 
-                    <!-- Section Générale -->
                     <section id="general-section" class="settings-section">
-                        <h3>Paramètres Généraux</h3>
-                        <div class="form-group">
-                            <label for="theme-select">Thème</label>
-                            <select id="theme-select" class="form-select">
-                                <option value="light">Clair</option>
-                                <option value="dark">Sombre</option>
-                            </select>
-                        </div>
-                         <div class="form-group">
-                            <label for="autoReloadCurrent">Rechargement automatique de l'onglet actuel</label>
-                            <input type="checkbox" id="autoReloadCurrent" class="form-checkbox">
+                        <div class="card">
+                            <div class="card-header"><h3>Paramètres Généraux</h3></div>
+                            <div class="card-content">
+                                <div class="form-group">
+                                    <label for="theme-select">Thème de l'interface</label>
+                                    <select id="theme-select" class="form-select">
+                                        <option value="light">Clair</option>
+                                        <option value="dark">Sombre</option>
+                                    </select>
+                                    <p class="form-group-description">Change l'apparence de l'extension.</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="autoReloadCurrent">Rechargement automatique</label>
+                                    <label class="toggle-switch-label">
+                                        <input type="checkbox" id="autoReloadCurrent" class="form-checkbox-hidden">
+                                        <span class="toggle-switch-ui"></span>
+                                        Recharger l'onglet actuel après un changement.
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </section>
                 </main>
             </div>
         </div>
 
-        <div class="actions-bar">
+        <div id="actions-bar-container" class="actions-bar" style="display: none;">
             <button id="saveSettings" class="btn primary large">
                 <span>💾</span>
                 Sauvegarder les Modifications

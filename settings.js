@@ -18,6 +18,7 @@ class FingerprintGuardSettings {
             autoReloadCurrent: document.getElementById('autoReloadCurrent'),
             modeIcon: document.getElementById('mode-icon'),
             modeName: document.getElementById('mode-name'),
+            actionsBar: document.getElementById('actions-bar-container'),
         };
 
         this.init();
@@ -48,10 +49,12 @@ class FingerprintGuardSettings {
 
         if (this.settings.protectionMode === 'advanced') {
             this.elements.advancedSettingsContainer.style.display = 'block';
+            this.elements.actionsBar.style.display = 'block';
             this.elements.nonAdvancedModeMessage.style.display = 'none';
             this.populateForms();
         } else {
             this.elements.advancedSettingsContainer.style.display = 'none';
+            this.elements.actionsBar.style.display = 'none';
             this.elements.nonAdvancedModeMessage.style.display = 'block';
             const mode = this.settings.protectionMode;
             const modeInfo = {
@@ -65,30 +68,44 @@ class FingerprintGuardSettings {
     }
 
     populateForms() {
-        // General Settings
         this.elements.themeSelect.value = this.settings.theme;
         this.elements.autoReloadCurrent.checked = this.settings.autoReloadCurrent;
 
-        // Advanced Protections
-        this.elements.advancedSettingsFields.innerHTML = ''
-        for (const key in this.settings.advancedSettings) {
-            this.createBooleanField(this.elements.advancedSettingsFields, key, this.settings.advancedSettings[key], `advancedSettings`);
-        }
+        this.populateGroup(this.elements.advancedSettingsFields, this.settings.advancedSettings, 'advancedSettings', 'Protections');
+        this.populateGroup(this.elements.profileSettingsFields, this.settings.profile, 'profile', 'Profil d\'Empreinte');
+    }
 
-        // Profile Settings
-        this.elements.profileSettingsFields.innerHTML = ''
-        for (const key in this.settings.profile) {
-            this.createTextField(this.elements.profileSettingsFields, key, this.settings.profile[key], `profile`);
+    populateGroup(container, settingsGroup, groupName, title) {
+        container.innerHTML = ''; // Clear previous content
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<div class="card-header"><h3>${title}</h3></div>`;
+        const content = document.createElement('div');
+        content.className = 'card-content form-grid';
+
+        for (const key in settingsGroup) {
+            const value = settingsGroup[key];
+            if (typeof value === 'boolean') {
+                this.createBooleanField(content, key, value, groupName);
+            } else {
+                this.createTextField(content, key, value, groupName);
+            }
         }
+        card.appendChild(content);
+        container.appendChild(card);
     }
 
     createBooleanField(container, key, value, group) {
         const formGroup = document.createElement('div');
         formGroup.className = 'form-group';
-        formGroup.innerHTML = `
-            <label for="${group}-${key}">${key}</label>
-            <input type="checkbox" id="${group}-${key}" class="form-checkbox" ${value ? 'checked' : ''}>
+        const label = document.createElement('label');
+        label.className = 'toggle-switch-label';
+        label.innerHTML = `
+            <input type="checkbox" id="${group}-${key}" class="form-checkbox-hidden" ${value ? 'checked' : ''}>
+            <span class="toggle-switch-ui"></span>
+            ${this.formatLabel(key)}
         `;
+        formGroup.appendChild(label);
         container.appendChild(formGroup);
     }
 
@@ -96,10 +113,14 @@ class FingerprintGuardSettings {
         const formGroup = document.createElement('div');
         formGroup.className = 'form-group';
         formGroup.innerHTML = `
-            <label for="${group}-${key}">${key}</label>
+            <label for="${group}-${key}">${this.formatLabel(key)}</label>
             <input type="text" id="${group}-${key}" class="form-input" value="${value}">
         `;
         container.appendChild(formGroup);
+    }
+
+    formatLabel(key) {
+        return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
     }
 
     attachEventListeners() {
@@ -109,31 +130,25 @@ class FingerprintGuardSettings {
         this.elements.navLinks.forEach(link => {
             link.addEventListener('click', e => {
                 e.preventDefault();
-                const sectionId = `${e.target.dataset.section}-section`;
+                const sectionId = `${e.currentTarget.dataset.section}-section`;
                 this.elements.sections.forEach(s => s.classList.remove('active'));
                 document.getElementById(sectionId).classList.add('active');
                 this.elements.navLinks.forEach(l => l.classList.remove('active'));
-                e.target.classList.add('active');
+                e.currentTarget.classList.add('active');
             });
         });
 
-        // Event delegation for dynamically created fields
         this.elements.advancedSettingsContainer.addEventListener('change', e => {
             this.isDirty = true;
-            const [group, key] = e.target.id.split('-');
-            if (this.settings[group]) {
-                this.settings[group][key] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+            const id = e.target.id;
+            if (id === 'theme-select' || id === 'autoReloadCurrent') {
+                 this.settings[id.replace('-select', '')] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+            } else {
+                const [group, key] = id.split('-');
+                if (this.settings[group]) {
+                    this.settings[group][key] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                }
             }
-        });
-        
-        this.elements.themeSelect.addEventListener('change', e => {
-            this.isDirty = true;
-            this.settings.theme = e.target.value;
-        });
-
-        this.elements.autoReloadCurrent.addEventListener('change', e => {
-            this.isDirty = true;
-            this.settings.autoReloadCurrent = e.target.checked;
         });
     }
 
