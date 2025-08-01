@@ -8,7 +8,7 @@
  */
 export const DEFAULT_SETTINGS = {
   // Mode de protection principal
-  protectionMode: 'advanced', // 'lucky', 'advanced', 'ghost'
+  protectionMode: 'lucky', // 'lucky', 'advanced', 'ghost'
 
   // Paramètres pour le mode 'advanced'
   advancedSettings: {
