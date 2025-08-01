@@ -20,15 +20,6 @@ export class SettingsManager {
       console.log('🔧 Initializing SettingsManager...');
       let stored = await chrome.storage.sync.get(null); // Charger tous les paramètres
 
-      // Logique de migration si nécessaire
-      if (this.isOldVersion(stored)) {
-        console.log('🔄 Migrating old settings to new structure...');
-        stored = this.migrateSettings(stored);
-        await chrome.storage.sync.clear(); // Effacer les anciens paramètres
-        await chrome.storage.sync.set(stored); // Sauvegarder les nouveaux
-        console.log('✅ Migration complete!');
-      }
-
       this.settings = { ...DEFAULT_SETTINGS, ...stored };
       this.settings = this.validateSettings(this.settings);
       console.log('✅ SettingsManager initialized with settings:', this.settings);
@@ -40,62 +31,9 @@ export class SettingsManager {
     }
   }
 
-  /**
-   * Vérifie si les paramètres stockés sont d'une ancienne version
-   * @param {object} storedSettings - Paramètres stockés
-   * @returns {boolean} Vrai si les paramètres sont d'une ancienne version
-   */
-  isOldVersion(storedSettings) {
-    return storedSettings.hasOwnProperty('ghostMode') || storedSettings.hasOwnProperty('spoofBrowser');
-  }
+  
 
-  /**
-   * Migre les anciens paramètres vers la nouvelle structure
-   * @param {object} oldSettings - Anciens paramètres
-   * @returns {object} Nouveaux paramètres migrés
-   */
-  migrateSettings(oldSettings) {
-    const newSettings = { ...DEFAULT_SETTINGS };
-
-    // Définir le mode de protection en fonction des anciens paramètres
-    if (oldSettings.ghostMode) {
-      newSettings.protectionMode = 'ghost';
-    } else {
-      newSettings.protectionMode = 'advanced'; // Par défaut, l'ancien mode est 'advanced'
-    }
-
-    // Migrer les paramètres avancés
-    if (oldSettings.advancedProtection) {
-        newSettings.advancedSettings.webrtc = oldSettings.advancedProtection.webrtc;
-        newSettings.advancedSettings.audio = oldSettings.advancedProtection.audio;
-        newSettings.advancedSettings.fonts = oldSettings.advancedProtection.fonts;
-        newSettings.advancedSettings.timezone = oldSettings.advancedProtection.timezone;
-        newSettings.advancedSettings.experimental = oldSettings.advancedProtection.experimental;
-    }
-    newSettings.advancedSettings.spoofBrowser = oldSettings.spoofBrowser;
-    newSettings.advancedSettings.spoofCanvas = oldSettings.spoofCanvas;
-    newSettings.advancedSettings.spoofScreen = oldSettings.spoofScreen;
-    newSettings.advancedSettings.blockImages = oldSettings.blockImages;
-    newSettings.advancedSettings.blockJS = oldSettings.blockJS;
-
-    // Migrer les paramètres de profil
-    Object.keys(newSettings.profile).forEach(key => {
-      if (oldSettings.hasOwnProperty(key)) {
-        newSettings.profile[key] = oldSettings[key];
-      }
-    });
-
-    // Migrer les autres paramètres
-    newSettings.autoReloadAll = oldSettings.autoReloadAll;
-    newSettings.autoReloadCurrent = oldSettings.autoReloadCurrent;
-    newSettings.useFixedProfile = oldSettings.useFixedProfile;
-    newSettings.generateNewProfileOnStart = oldSettings.generateNewProfileOnStart;
-    newSettings.activeProfileId = oldSettings.activeProfileId;
-    newSettings.profiles = oldSettings.profiles;
-    newSettings.theme = oldSettings.theme;
-
-    return newSettings;
-  }
+  
 
   /**
    * Obtient une valeur de paramètre

@@ -67,6 +67,9 @@ export class SpoofingService {
     for (const key in allProtectionsOn) {
         allProtectionsOn[key] = true;
     }
+    // S'assurer que le blocage de JS et des images est désactivé en mode Lucky
+    allProtectionsOn.blockJS = false;
+    allProtectionsOn.blockImages = false;
 
     await this.applyAllSpoofing(tabId, allProtectionsOn, settings.profile);
   }
