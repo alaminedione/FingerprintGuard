@@ -1,14 +1,91 @@
-<!doctype html>
-<html lang="fr" data-theme="light">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Settings - FingerprintGuard</title>
-    <link rel="stylesheet" href="./css/settings.css" />
-  </head>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paramètres - FingerprintGuard</title>
+    <link rel="stylesheet" href="css/settings.css">
+</head>
+<body data-theme="light">
 
-  <body data-theme="light">
-    <!-- The static header in HTML is replaced by dynamic header in JavaScript -->
+    <div class="container">
+        <header class="page-header">
+            <div class="page-header-content">
+                <div class="page-title">
+                    <div class="page-title-icon">🛡️</div>
+                    <div>
+                        <h1>Paramètres FingerprintGuard</h1>
+                        <p class="page-subtitle">Configuration et gestion des profils</p>
+                    </div>
+                </div>
+                <button id="themeToggle" class="theme-toggle" title="Changer de thème">🌙</button>
+            </div>
+        </header>
+
+        <!-- Conteneur pour le message des modes non-avancés -->
+        <div id="non-advanced-mode-message" style="display: none;">
+            <div class="info-card">
+                <div class="card-title">
+                    <span id="mode-icon" class="card-icon"></span>
+                    <span id="mode-name"></span> est Actif
+                </div>
+                <p>Les paramètres avancés ne sont pas disponibles dans ce mode. Pour personnaliser les options, veuillez passer au mode "Avancé" depuis la fenêtre popup de l'extension.</p>
+            </div>
+        </div>
+
+        <!-- Conteneur pour les paramètres avancés -->
+        <div id="advanced-settings-container">
+            <div class="settings-grid">
+                <nav class="settings-nav" id="settingsNav">
+                    <ul class="nav-list">
+                        <li><a href="#" class="nav-link active" data-section="protections">Protections</a></li>
+                        <li><a href="#profile" class="nav-link" data-section="profile">Profil d'Empreinte</a></li>
+                        <li><a href="#general" class="nav-link" data-section="general">Général</a></li>
+                    </ul>
+                </nav>
+
+                <main class="settings-content">
+                    <!-- Section Protections -->
+                    <section id="protections-section" class="settings-section active">
+                        <h3>Protections Avancées</h3>
+                        <div id="advanced-settings-fields" class="form-grid"></div>
+                    </section>
+
+                    <!-- Section Profil -->
+                    <section id="profile-section" class="settings-section">
+                        <h3>Profil d'Empreinte Digitale</h3>
+                        <div id="profile-settings-fields" class="form-grid"></div>
+                    </section>
+
+                    <!-- Section Générale -->
+                    <section id="general-section" class="settings-section">
+                        <h3>Paramètres Généraux</h3>
+                        <div class="form-group">
+                            <label for="theme-select">Thème</label>
+                            <select id="theme-select" class="form-select">
+                                <option value="light">Clair</option>
+                                <option value="dark">Sombre</option>
+                            </select>
+                        </div>
+                         <div class="form-group">
+                            <label for="autoReloadCurrent">Rechargement automatique de l'onglet actuel</label>
+                            <input type="checkbox" id="autoReloadCurrent" class="form-checkbox">
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
+
+        <div class="actions-bar">
+            <button id="saveSettings" class="btn primary large">
+                <span>💾</span>
+                Sauvegarder les Modifications
+            </button>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
     <script src="settings.js"></script>
-  </body>
+</body>
 </html>
