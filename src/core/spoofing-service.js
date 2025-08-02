@@ -52,6 +52,10 @@ export class SpoofingService {
       case 'ghost':
         await this.applyGhostMode(tabId);
         break;
+      case 'none': // Nouveau cas pour désactiver la protection
+        console.log(`🚫 Protection disabled for tab: ${tabId}`);
+        // Ne rien faire, ou réinitialiser si nécessaire
+        break;
     }
   }
 

@@ -30,6 +30,8 @@ class FingerprintGuardPopup {
       settingsButton: document.getElementById('openSettings'),
       notification: document.getElementById('notification'),
       notificationText: document.getElementById('notificationText'),
+      protectionToggle: document.getElementById('protectionToggle'),
+      protectionStatusText: document.getElementById('protectionStatusText'),
     };
     return Object.values(this.elements).every(el => el !== null);
   }
@@ -42,6 +44,10 @@ class FingerprintGuardPopup {
     this.elements.modeButtons.forEach(button => {
       button.addEventListener('click', () => this.handleModeChange(button.dataset.mode));
     });
+
+    this.elements.protectionToggle.addEventListener('change', () => this.handleProtectionToggle());
+
+    this.elements.protectionToggle.addEventListener('change', () => this.handleProtectionToggle());
   }
 
   async loadSettings() {
@@ -68,6 +74,7 @@ class FingerprintGuardPopup {
     this.applyTheme();
     this.updateModeSelection();
     this.updateStatusDisplay();
+    this.updateProtectionToggle(); // Nouvelle fonction pour le bouton slide
     // Le bouton des paramètres est toujours visible, mais sa pertinence dépend du mode.
     this.elements.settingsButton.style.display = this.currentMode === 'advanced' ? 'flex' : 'none';
   }
@@ -118,6 +125,43 @@ class FingerprintGuardPopup {
       this.elements.statusDescription.textContent = info.description;
       this.elements.statusIcon.style.backgroundColor = info.color;
       this.elements.statusDisplay.style.borderColor = info.color;
+    }
+  }
+
+  updateProtectionToggle() {
+    const isProtectionActive = this.currentMode !== 'none'; // Supposons qu'un mode 'none' désactive tout
+    this.elements.protectionToggle.checked = isProtectionActive;
+    this.elements.protectionStatusText.textContent = isProtectionActive ? 'Protection Activée' : 'Protection Désactivée';
+
+    // Désactiver les boutons de mode si la protection est désactivée
+    this.elements.modeButtons.forEach(button => {
+        button.disabled = !isProtectionActive;
+    });
+  }
+
+  async handleProtectionToggle() {
+    const newProtectionState = this.elements.protectionToggle.checked;
+    const newMode = newProtectionState ? 'lucky' : 'none'; // Activer Lucky Mode ou désactiver tout
+
+    try {
+        const response = await this.sendMessage({
+            type: 'updateSetting',
+            payload: { key: 'protectionMode', value: newMode }
+        });
+
+        if (response?.success) {
+            this.currentMode = newMode;
+            this.updateUI();
+            this.showNotification(newProtectionState ? 'Protection activée' : 'Protection désactivée', 'success');
+        } else {
+            throw new Error('Failed to update protection state');
+        }
+    } catch (error) {
+        console.error('Error toggling protection:', error);
+        this.showNotification('Erreur lors du basculement de la protection', 'error');
+        // Revert UI if update fails
+        this.elements.protectionToggle.checked = !newProtectionState;
+        this.updateUI();
     }
   }
 
