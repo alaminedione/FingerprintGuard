@@ -22,15 +22,22 @@ export class ProfileManager {
     // Charger les profils fixes stockés
     const stored = await chrome.storage.local.get('profiles');
     this.profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
+    console.log('👤 Fixed profiles loaded:', this.profiles.length);
 
     // Charger le profil Lucky Mode depuis le stockage de session
-    const sessionStored = await chrome.storage.session.get('luckyModeProfile');
-    if (sessionStored.luckyModeProfile) {
-      this.luckyModeProfile = sessionStored.luckyModeProfile;
-      console.log('🍀 Loaded Lucky Mode profile from session storage.');
+    try {
+      const sessionStored = await chrome.storage.session.get('luckyModeProfile');
+      if (sessionStored.luckyModeProfile) {
+        this.luckyModeProfile = sessionStored.luckyModeProfile;
+        console.log('🍀 Loaded Lucky Mode profile from session storage:', this.luckyModeProfile.id);
+      } else {
+        console.log('🍀 No Lucky Mode profile found in session storage.');
+      }
+    } catch (error) {
+      console.error('❌ Error loading Lucky Mode profile from session storage:', error);
     }
 
-    // Gérer le profil de session
+    // Gérer le profil de session (général, non Lucky Mode)
     await this.handleSessionProfile();
     console.log(`✅ ProfileManager initialized with ${this.profiles.length} saved profiles.`);
   }
@@ -42,9 +49,13 @@ export class ProfileManager {
    */
   getLuckyModeProfile() {
     if (!this.luckyModeProfile) {
-      console.log('🍀 Generating new Lucky Mode profile...');
+      console.log('🍀 getLuckyModeProfile: No profile in memory, generating new one...');
       this.luckyModeProfile = this.generateSessionProfile(); // Réutilise la logique de génération de profil de session
-      chrome.storage.session.set({ luckyModeProfile: this.luckyModeProfile }); // Sauvegarder dans le stockage de session
+      chrome.storage.session.set({ luckyModeProfile: this.luckyModeProfile })
+        .then(() => console.log('🍀 Lucky Mode profile saved to session storage:', this.luckyModeProfile.id))
+        .catch(error => console.error('❌ Error saving Lucky Mode profile to session storage:', error));
+    } else {
+      console.log('🍀 getLuckyModeProfile: Using existing profile from memory:', this.luckyModeProfile.id);
     }
     return this.luckyModeProfile;
   }
@@ -58,12 +69,16 @@ export class ProfileManager {
 
     if (protectionMode === 'ghost') {
         this.sessionProfile = null; // Pas de profil en mode Ghost
+        console.log('👻 Ghost mode active, session profile cleared.');
         return;
     }
 
     if (generateNewProfileOnStart || !this.sessionProfile) {
-        console.log('🔄 Generating new session profile...');
+        console.log('🔄 Generating new general session profile...');
         this.sessionProfile = this.generateSessionProfile();
+        console.log('✅ General session profile generated:', this.sessionProfile.id);
+    } else {
+        console.log('🔄 Using existing general session profile:', this.sessionProfile.id);
     }
   }
 
@@ -72,6 +87,7 @@ export class ProfileManager {
    * @returns {object} Le profil de session généré.
    */
   generateSessionProfile() {
+    console.log('✨ Generating a new random profile...');
     const profileSettings = this.settingsManager.get('profile');
     const data = {
         fakeNavigator: getFakeNavigatorProperties(profileSettings),
@@ -81,12 +97,14 @@ export class ProfileManager {
         rules: getNewRules(profileSettings, 1),
     };
 
-    return {
+    const newProfile = {
         id: `session_${Date.now()}`,
         isSession: true,
         createdAt: new Date().toISOString(),
         data: data
     };
+    console.log('✅ New random profile generated with ID:', newProfile.id);
+    return newProfile;
   }
 
   /**
