@@ -55,7 +55,7 @@ export const DEFAULT_SETTINGS = {
     spoofScreenResolution: 'random',
     timezone: 'random', // Déplacé de advancedSettings
   },
-  
+
   // Gestion des profils
   useFixedProfile: false,
   generateNewProfileOnStart: true, // Activé par défaut pour 'advanced'
@@ -68,17 +68,17 @@ export const VALIDATION_RULES = {
   stringFields: [
     'protectionMode', 'theme',
     // Champs de profil
-    'profile.platform', 'profile.language', 
+    'profile.platform', 'profile.language',
     'profile.browser', // Ajouté pour permettre la spécification du navigateur
-    'profile.contentEncoding', 
+    'profile.contentEncoding',
     'profile.spoofDeviceType', 'profile.spoofDevicePixelRatio', 'profile.spoofScreenResolution',
     'profile.timezone' // Ajouté pour permettre la spécification du fuseau horaire
   ],
   booleanFields: [
     'autoReloadAll', 'autoReloadCurrent', 'useFixedProfile', 'generateNewProfileOnStart',
     // Champs de paramètres avancés
-    'advancedSettings.spoofBrowser', 'advancedSettings.spoofCanvas', 'advancedSettings.spoofScreen', 
-    'advancedSettings.webrtc', 'advancedSettings.audio', 'advancedSettings.fonts', 
+    'advancedSettings.spoofBrowser', 'advancedSettings.spoofCanvas', 'advancedSettings.spoofScreen',
+    'advancedSettings.webrtc', 'advancedSettings.audio', 'advancedSettings.fonts',
     'advancedSettings.experimental', 'advancedSettings.blockImages', 'advancedSettings.blockJS'
   ],
   numberFields: [
@@ -128,7 +128,7 @@ export const SPOOFING_DATA = {
       languages: ['en-US', 'en-GB', 'fr-FR', 'de-DE', 'es-ES']
     }
   },
-  
+
   screenResolutions: [
     { width: 1920, height: 1080 },
     { width: 1366, height: 768 },
@@ -146,7 +146,7 @@ export const SPOOFING_DATA = {
 
   timezones: [
     'America/New_York',
-    'America/Los_Angeles', 
+    'America/Los_Angeles',
     'Europe/London',
     'Europe/Paris',
     'Europe/Berlin',

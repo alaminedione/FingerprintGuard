@@ -16,7 +16,7 @@ export function protectWebRTC() {
   // Bloquer getUserMedia
   if (navigator.mediaDevices) {
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
-      value: function() {
+      value: function () {
         return Promise.reject(new DOMException('NotAllowedError', 'Permission denied'));
       },
       configurable: true
@@ -24,12 +24,12 @@ export function protectWebRTC() {
   }
 
   // Intercepter RTCPeerConnection
-  window.RTCPeerConnection = function(...args) {
+  window.RTCPeerConnection = function (...args) {
     const pc = new originalRTCPeerConnection(...args);
-    
+
     // Intercepter createOffer pour modifier les SDP
     const originalCreateOffer = pc.createOffer;
-    pc.createOffer = function(options) {
+    pc.createOffer = function (options) {
       return originalCreateOffer.call(this, options).then(offer => {
         // Supprimer les candidats ICE qui révèlent l'IP locale
         offer.sdp = offer.sdp.replace(/c=IN IP4 (\d+\.){3}\d+/g, 'c=IN IP4 0.0.0.0');
@@ -71,7 +71,7 @@ export function protectFonts() {
   }
 
   Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-    get: function() {
+    get: function () {
       const value = originalOffsetWidth.get.call(this);
       if (this.style && this.style.fontFamily) {
         return Math.round(addNoise(value));
@@ -81,7 +81,7 @@ export function protectFonts() {
   });
 
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-    get: function() {
+    get: function () {
       const value = originalOffsetHeight.get.call(this);
       if (this.style && this.style.fontFamily) {
         return Math.round(addNoise(value));
@@ -92,13 +92,13 @@ export function protectFonts() {
 
   // Limiter les fonts disponibles
   Object.defineProperty(document, 'fonts', {
-    get: function() {
+    get: function () {
       return {
-        check: function(font) {
+        check: function (font) {
           const fontFamily = font.split(' ').pop().replace(/['"]/g, '');
           return commonFonts.includes(fontFamily);
         },
-        load: function() {
+        load: function () {
           return Promise.resolve();
         },
         ready: Promise.resolve(),
@@ -132,13 +132,13 @@ export function protectTimezone(fakeTimezone = 'UTC') {
   const targetOffset = timezoneOffsets[fakeTimezone] || 0;
 
   // Override getTimezoneOffset
-  Date.prototype.getTimezoneOffset = function() {
+  Date.prototype.getTimezoneOffset = function () {
     return targetOffset;
   };
 
   // Override toTimeString et related methods
   const originalToTimeString = Date.prototype.toTimeString;
-  Date.prototype.toTimeString = function() {
+  Date.prototype.toTimeString = function () {
     const utcTime = this.getTime() - (targetOffset * 60000);
     const adjustedDate = new originalDate(utcTime);
     return originalToTimeString.call(adjustedDate);
@@ -146,7 +146,7 @@ export function protectTimezone(fakeTimezone = 'UTC') {
 
   // Override Intl.DateTimeFormat pour la cohérence
   const originalIntlDateTimeFormat = Intl.DateTimeFormat;
-  Intl.DateTimeFormat = function(...args) {
+  Intl.DateTimeFormat = function (...args) {
     if (args.length === 0 || !args[0]) {
       args[0] = 'en-US';
     }
@@ -166,47 +166,47 @@ export function protectTimezone(fakeTimezone = 'UTC') {
  */
 export function protectAudioContext() {
   const originalAudioContext = window.AudioContext || window.webkitAudioContext;
-  
+
   if (!originalAudioContext) return;
 
   const audioContextHandler = {
-    construct: function(target, args) {
+    construct: function (target, args) {
       const context = new target(...args);
-      
+
       // Intercepter createOscillator
       const originalCreateOscillator = context.createOscillator;
-      context.createOscillator = function() {
+      context.createOscillator = function () {
         const oscillator = originalCreateOscillator.call(this);
-        
+
         // Ajouter du bruit à la fréquence
         const originalFrequency = oscillator.frequency;
         Object.defineProperty(oscillator, 'frequency', {
-          get: function() {
+          get: function () {
             return {
               ...originalFrequency,
               value: originalFrequency.value + (Math.random() - 0.5) * 0.01
             };
           }
         });
-        
+
         return oscillator;
       };
 
       // Intercepter createAnalyser
       const originalCreateAnalyser = context.createAnalyser;
-      context.createAnalyser = function() {
+      context.createAnalyser = function () {
         const analyser = originalCreateAnalyser.call(this);
-        
+
         // Modifier getFloatFrequencyData
         const originalGetFloatFrequencyData = analyser.getFloatFrequencyData;
-        analyser.getFloatFrequencyData = function(array) {
+        analyser.getFloatFrequencyData = function (array) {
           originalGetFloatFrequencyData.call(this, array);
           // Ajouter du bruit
           for (let i = 0; i < array.length; i++) {
             array[i] += (Math.random() - 0.5) * 0.1;
           }
         };
-        
+
         return analyser;
       };
 
@@ -228,20 +228,20 @@ export function protectAudioContext() {
 export function protectTiming() {
   // Réduire la précision de performance.now()
   const originalPerformanceNow = performance.now;
-  performance.now = function() {
+  performance.now = function () {
     return Math.floor(originalPerformanceNow.call(this) / 100) * 100;
   };
 
   // Modifier Date.now() pour réduire la précision
   const originalDateNow = Date.now;
-  Date.now = function() {
+  Date.now = function () {
     return Math.floor(originalDateNow() / 1000) * 1000;
   };
 
   // Intercepter requestAnimationFrame timing
   const originalRequestAnimationFrame = window.requestAnimationFrame;
-  window.requestAnimationFrame = function(callback) {
-    return originalRequestAnimationFrame.call(this, function(timestamp) {
+  window.requestAnimationFrame = function (callback) {
+    return originalRequestAnimationFrame.call(this, function (timestamp) {
       // Réduire la précision du timestamp
       const reducedTimestamp = Math.floor(timestamp / 100) * 100;
       callback(reducedTimestamp);
@@ -281,14 +281,14 @@ export function protectExperimentalAPIs() {
   experimentalAPIs.forEach(apiPath => {
     const pathParts = apiPath.split('.');
     let obj = window;
-    
+
     for (let i = 0; i < pathParts.length - 1; i++) {
       obj = obj[pathParts[i]];
       if (!obj) return;
     }
-    
+
     const prop = pathParts[pathParts.length - 1];
-    
+
     try {
       Object.defineProperty(obj, prop, {
         get: () => undefined,
@@ -317,7 +317,7 @@ export function protectExperimentalAPIs() {
 export function protectPlugins() {
   // Créer une liste de plugins générique
   const fakePlugins = [];
-  
+
   // Plugin PDF générique
   const pdfPlugin = {
     name: 'Chrome PDF Plugin',
@@ -325,31 +325,31 @@ export function protectPlugins() {
     filename: 'internal-pdf-viewer',
     length: 1
   };
-  
+
   fakePlugins.push(pdfPlugin);
 
   // Override navigator.plugins
   Object.defineProperty(navigator, 'plugins', {
-    get: function() {
+    get: function () {
       const pluginArray = [];
       pluginArray.push(...fakePlugins);
-      
+
       Object.defineProperty(pluginArray, 'length', {
         value: fakePlugins.length
       });
-      
-      pluginArray.item = function(index) {
+
+      pluginArray.item = function (index) {
         return this[index] || null;
       };
-      
-      pluginArray.namedItem = function(name) {
+
+      pluginArray.namedItem = function (name) {
         return this.find(plugin => plugin.name === name) || null;
       };
-      
-      pluginArray.refresh = function() {
+
+      pluginArray.refresh = function () {
         // No-op
       };
-      
+
       return pluginArray;
     },
     configurable: true
@@ -364,7 +364,7 @@ export function protectPlugins() {
 export function protectMemory() {
   // Falsifier navigator.deviceMemory
   Object.defineProperty(navigator, 'deviceMemory', {
-    get: function() {
+    get: function () {
       const commonMemorySizes = [2, 4, 8, 16];
       return commonMemorySizes[Math.floor(Math.random() * commonMemorySizes.length)];
     },
@@ -374,9 +374,9 @@ export function protectMemory() {
   // Falsifier performance.memory si disponible
   if (performance.memory) {
     const originalMemory = performance.memory;
-    
+
     Object.defineProperty(performance, 'memory', {
-      get: function() {
+      get: function () {
         return {
           get usedJSHeapSize() {
             return Math.floor(Math.random() * 50000000) + 10000000;
@@ -402,22 +402,22 @@ export function protectMemory() {
 export function protectCSS() {
   // Intercepter getComputedStyle
   const originalGetComputedStyle = window.getComputedStyle;
-  
-  window.getComputedStyle = function(element, pseudoElement) {
+
+  window.getComputedStyle = function (element, pseudoElement) {
     const styles = originalGetComputedStyle.call(this, element, pseudoElement);
-    
+
     // Créer un proxy pour modifier certaines propriétés
     return new Proxy(styles, {
-      get: function(target, property) {
+      get: function (target, property) {
         // Masquer certaines propriétés spécifiques au système
         if (property === 'fontFamily') {
           return 'Arial, sans-serif';
         }
-        
+
         if (property === 'fontSmooth' || property === 'webkitFontSmoothing') {
           return 'auto';
         }
-        
+
         return target[property];
       }
     });
@@ -440,7 +440,7 @@ export function enableAllAdvancedProtections(options = {}) {
     if (options.plugins !== false) protectPlugins();
     if (options.memory !== false) protectMemory();
     if (options.css !== false) protectCSS();
-    
+
     console.log('🛡️ All advanced protections activated');
     return true;
   } catch (error) {
@@ -454,10 +454,10 @@ export function enableAllAdvancedProtections(options = {}) {
  */
 export function detectFingerprintingAttempts() {
   const detectionLog = [];
-  
+
   // Détecter les accès suspects à canvas
   const originalGetContext = HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext = function(...args) {
+  HTMLCanvasElement.prototype.getContext = function (...args) {
     if (args[0] === '2d' || args[0] === 'webgl' || args[0] === 'webgl2') {
       detectionLog.push({
         type: 'canvas_access',
@@ -471,14 +471,14 @@ export function detectFingerprintingAttempts() {
 
   // Détecter les accès aux propriétés sensibles
   const sensitiveProps = ['plugins', 'mimeTypes', 'languages', 'platform', 'userAgent'];
-  
+
   sensitiveProps.forEach(prop => {
     let accessCount = 0;
     const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, prop);
-    
+
     if (originalDescriptor && originalDescriptor.get) {
       Object.defineProperty(navigator, prop, {
-        get: function() {
+        get: function () {
           accessCount++;
           if (accessCount > 5) { // Seuil de détection
             detectionLog.push({
@@ -496,7 +496,7 @@ export function detectFingerprintingAttempts() {
   });
 
   // API pour récupérer les détections
-  window.getFingerprintingDetections = function() {
+  window.getFingerprintingDetections = function () {
     return [...detectionLog];
   };
 

@@ -135,7 +135,7 @@ class FingerprintGuardPopup {
 
     // Désactiver les boutons de mode si la protection est désactivée
     this.elements.modeButtons.forEach(button => {
-        button.disabled = !isProtectionActive;
+      button.disabled = !isProtectionActive;
     });
   }
 
@@ -144,24 +144,24 @@ class FingerprintGuardPopup {
     const newMode = newProtectionState ? 'lucky' : 'none'; // Activer Lucky Mode ou désactiver tout
 
     try {
-        const response = await this.sendMessage({
-            type: 'updateSetting',
-            payload: { key: 'protectionMode', value: newMode }
-        });
+      const response = await this.sendMessage({
+        type: 'updateSetting',
+        payload: { key: 'protectionMode', value: newMode }
+      });
 
-        if (response?.success) {
-            this.currentMode = newMode;
-            this.updateUI();
-            this.showNotification(newProtectionState ? 'Protection activée' : 'Protection désactivée', 'success');
-        } else {
-            throw new Error('Failed to update protection state');
-        }
-    } catch (error) {
-        console.error('Error toggling protection:', error);
-        this.showNotification('Erreur lors du basculement de la protection', 'error');
-        // Revert UI if update fails
-        this.elements.protectionToggle.checked = !newProtectionState;
+      if (response?.success) {
+        this.currentMode = newMode;
         this.updateUI();
+        this.showNotification(newProtectionState ? 'Protection activée' : 'Protection désactivée', 'success');
+      } else {
+        throw new Error('Failed to update protection state');
+      }
+    } catch (error) {
+      console.error('Error toggling protection:', error);
+      this.showNotification('Erreur lors du basculement de la protection', 'error');
+      // Revert UI if update fails
+      this.elements.protectionToggle.checked = !newProtectionState;
+      this.updateUI();
     }
   }
 

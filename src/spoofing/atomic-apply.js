@@ -29,14 +29,14 @@ export function applyAtomicSpoofing(profile) {
   // 2. Spoofing de l'API User Agent Client Hints (si applicable)
   try {
     if (navigator.userAgentData) {
-        Object.defineProperty(navigator, 'userAgentData', {
-            value: fakeUserAgentData,
-            writable: false,
-            configurable: true
-        });
+      Object.defineProperty(navigator, 'userAgentData', {
+        value: fakeUserAgentData,
+        writable: false,
+        configurable: true
+      });
     }
   } catch (e) {
-      console.error('❌ Error applying User-Agent Client Hints spoofing:', e);
+    console.error('❌ Error applying User-Agent Client Hints spoofing:', e);
   }
 
   // 3. Spoofing des propriétés de l'écran
@@ -55,7 +55,7 @@ export function applyAtomicSpoofing(profile) {
   // 4. Spoofing de WebGL
   try {
     const originalGetParameter = WebGLRenderingContext.prototype.getParameter;
-    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+    WebGLRenderingContext.prototype.getParameter = function (parameter) {
       // Usurper le vendeur et le moteur de rendu
       if (parameter === 37445) { // VENDOR
         return 'Google Inc. (Intel)';
@@ -88,7 +88,7 @@ export function applyGhostMode() {
   // Neutraliser le Canvas
   try {
     const originalGetContext = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function(type, args) {
+    HTMLCanvasElement.prototype.getContext = function (type, args) {
       if (type === '2d' || type.includes('webgl')) {
         return null; // Empêche l'obtention du contexte
       }

@@ -48,10 +48,10 @@ export class SpoofingService {
 
     // Enregistrer le nouveau script avec le profil mis à jour
     await this.registerSpoofingScript(profile, advancedSettings);
-    
+
     // Mettre à jour les règles d'en-tête séparément
     if (advancedSettings.spoofBrowser) {
-        await this.applyHttpRules(profile.rules);
+      await this.applyHttpRules(profile.rules);
     }
   }
 

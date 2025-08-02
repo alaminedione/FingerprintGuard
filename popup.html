@@ -1,100 +1,114 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FingerprintGuard</title>
-    <link rel="stylesheet" href="css/popup.css">
-</head>
-<body data-theme="light">
+    <link rel="stylesheet" href="css/popup.css" />
+  </head>
+  <body data-theme="light">
     <!-- Loading Overlay -->
     <div id="loading" class="loading-overlay">
-        <div class="loading-spinner"></div>
+      <div class="loading-spinner"></div>
     </div>
 
     <!-- Header -->
     <header class="header">
-        <button id="themeToggle" class="theme-toggle" title="Changer de thème" aria-label="Basculer entre thème clair et sombre">
-            <span aria-hidden="true">🌙</span>
-        </button>
-        <div class="header-content">
-            <div class="logo">
-                <div class="logo-icon">🛡️</div>
-                <div>
-                    <div class="logo-text">FingerprintGuard</div>
-                    <div class="header-subtitle">Votre bouclier de confidentialité</div>
-                </div>
-            </div>
+      <button
+        id="themeToggle"
+        class="theme-toggle"
+        title="Changer de thème"
+        aria-label="Basculer entre thème clair et sombre"
+      >
+        <span aria-hidden="true">🌙</span>
+      </button>
+      <div class="header-content">
+        <div class="logo">
+          <div class="logo-icon">🛡️</div>
+          <div>
+            <div class="logo-text">FingerprintGuard</div>
+            <div class="header-subtitle">Votre bouclier de confidentialité</div>
+          </div>
         </div>
+      </div>
     </header>
 
     <!-- Main Content -->
     <main class="main-content">
-        <!-- Protection Mode Selector -->
-        <div class="controls-section">
-            <div class="form-group toggle-protection">
-                <label for="protectionToggle" class="toggle-switch-label">
-                    <input type="checkbox" id="protectionToggle" class="form-checkbox-hidden">
-                    <span class="toggle-switch-ui"></span>
-                    <span id="protectionStatusText">Protection Activée</span>
-                </label>
-            </div>
-            <h3 class="section-title">
-                <div class="section-icon">🛡️</div>
-                Mode de Protection
-            </h3>
-            <div class="protection-modes">
-                <button class="mode-btn" data-mode="lucky">
-                    <span class="mode-icon">🍀</span>
-                    <span class="mode-text">I'm Feeling Lucky</span>
-                </button>
-                <button class="mode-btn" data-mode="advanced">
-                    <span class="mode-icon">⚙️</span>
-                    <span class="mode-text">Avancé</span>
-                </button>
-                <button class="mode-btn" data-mode="ghost">
-                    <span class="mode-icon">👻</span>
-                    <span class="mode-text">Ghost Mode</span>
-                </button>
-            </div>
+      <!-- Protection Mode Selector -->
+      <div class="controls-section">
+        <div class="form-group toggle-protection">
+          <label for="protectionToggle" class="toggle-switch-label">
+            <input
+              type="checkbox"
+              id="protectionToggle"
+              class="form-checkbox-hidden"
+            />
+            <span class="toggle-switch-ui"></span>
+            <span id="protectionStatusText">Protection Activée</span>
+          </label>
         </div>
+        <h3 class="section-title">
+          <div class="section-icon">🛡️</div>
+          Mode de Protection
+        </h3>
+        <div class="protection-modes">
+          <button class="mode-btn" data-mode="lucky">
+            <span class="mode-icon">🍀</span>
+            <span class="mode-text">I'm Feeling Lucky</span>
+          </button>
+          <button class="mode-btn" data-mode="advanced">
+            <span class="mode-icon">⚙️</span>
+            <span class="mode-text">Avancé</span>
+          </button>
+          <button
+            class="mode-btn not-available"
+            title="Cette fonctionnalité n'est pas encore disponible"
+            data-mode="ghost"
+          >
+            <span class="mode-icon">👻</span>
+            <span class="mode-text">Ghost Mode</span>
+          </button>
+        </div>
+      </div>
 
-        <!-- Status Display -->
-        <div id="status-display" class="status-display">
-            <div id="status-icon" class="status-display-icon"></div>
-            <div class="status-display-text">
-                <h4 id="status-title"></h4>
-                <p id="status-description"></p>
-            </div>
+      <!-- Status Display -->
+      <div id="status-display" class="status-display">
+        <div id="status-icon" class="status-display-icon"></div>
+        <div class="status-display-text">
+          <h4 id="status-title"></h4>
+          <p id="status-description"></p>
         </div>
+      </div>
 
-        <!-- Action Buttons -->
-        <div class="actions-section">
-            <button id="reloadAllTabs" class="action-btn primary">
-                <span>🔄</span>
-                Appliquer & Recharger
-            </button>
-            <button id="openSettings" class="action-btn secondary">
-                <span>⚙️</span>
-                Personnaliser
-            </button>
-        </div>
+      <!-- Action Buttons -->
+      <div class="actions-section">
+        <button id="reloadAllTabs" class="action-btn primary">
+          <span>🔄</span>
+          Appliquer & Recharger
+        </button>
+        <button id="openSettings" class="action-btn secondary">
+          <span>⚙️</span>
+          Personnaliser
+        </button>
+      </div>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="footer-text">
-            <a href="#" class="footer-link" id="aboutLink">À propos</a> • 
-            <a href="#" class="footer-link" id="helpLink">Aide</a> • 
-            <span>v3.0.0</span>
-        </div>
+      <div class="footer-text">
+        <a href="#" class="footer-link" id="aboutLink">À propos</a> •
+        <a href="#" class="footer-link" id="helpLink">Aide</a> •
+        <span>v3.0.0</span>
+      </div>
     </footer>
 
     <!-- Notification -->
     <div id="notification" class="notification">
-        <span id="notificationText"></span>
+      <span id="notificationText"></span>
     </div>
 
     <script src="popup.js"></script>
-</body>
+  </body>
 </html>
+

@@ -69,9 +69,9 @@ export class ScriptInjector {
    * Gère les erreurs d'injection de manière centralisée.
    */
   handleInjectionError(error, tabId) {
-    if (error.message.includes('Cannot access a chrome://') || 
-        error.message.includes('Cannot access contents of the page') ||
-        error.message.includes('The tab was closed.')) {
+    if (error.message.includes('Cannot access a chrome://') ||
+      error.message.includes('Cannot access contents of the page') ||
+      error.message.includes('The tab was closed.')) {
       // Erreurs attendues, pas de log nécessaire.
     } else {
       console.error(`❌ Script injection failed for tab ${tabId}:`, error);

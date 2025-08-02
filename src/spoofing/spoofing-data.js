@@ -34,7 +34,7 @@ function generateBrowserAndPlatformInfo(config = {}) {
     } else {
       selectedPlatform = config.platform;
       const os = selectedPlatform.includes('Win') ? 'windows' : (selectedPlatform.includes('Mac') ? 'macos' : 'linux');
-      browserName = (config.browser === 'random' || !config.browser || !ecosystems[os].browsers.includes(config.browser)) 
+      browserName = (config.browser === 'random' || !config.browser || !ecosystems[os].browsers.includes(config.browser))
         ? getRandomElement(ecosystems[os].browsers)
         : config.browser;
     }
@@ -59,7 +59,7 @@ function generateBrowserAndPlatformInfo(config = {}) {
 
     const platformData = SPOOFING_DATA.platforms[selectedPlatform] || SPOOFING_DATA.platforms['Windows NT 10.0; Win64; x64'];
     const macPlatformForUA = selectedPlatform.includes('Macintosh') ? 'Macintosh; Intel Mac OS X 10_15_7' : selectedPlatform;
-    
+
     let secChUaPlatformValue;
     if (selectedPlatform.includes('Windows')) secChUaPlatformValue = '"Windows"';
     else if (selectedPlatform.includes('Macintosh')) secChUaPlatformValue = '"macOS"';
@@ -111,27 +111,27 @@ function generateUserAgent(browserInfo) {
 }
 
 function generateBrands(browserName, majorVersion) {
-    const brands = [];
-    const chromiumVersion = majorVersion;
+  const brands = [];
+  const chromiumVersion = majorVersion;
 
-    switch (browserName) {
-        case 'Chrome':
-            brands.push({ brand: 'Google Chrome', version: String(majorVersion) });
-            brands.push({ brand: 'Chromium', version: String(chromiumVersion) });
-            break;
-        case 'Edge':
-            brands.push({ brand: 'Microsoft Edge', version: String(majorVersion) });
-            brands.push({ brand: 'Chromium', version: String(chromiumVersion) });
-            break;
-        case 'Opera':
-            brands.push({ brand: 'Opera', version: String(majorVersion) });
-            brands.push({ brand: 'Chromium', version: String(chromiumVersion) });
-            break;
-        default: // Pour Safari et Firefox, on ne met pas de brand Chromium
-            break;
-    }
-    brands.push({ brand: 'Not_A Brand', version: '8' });
-    return brands;
+  switch (browserName) {
+    case 'Chrome':
+      brands.push({ brand: 'Google Chrome', version: String(majorVersion) });
+      brands.push({ brand: 'Chromium', version: String(chromiumVersion) });
+      break;
+    case 'Edge':
+      brands.push({ brand: 'Microsoft Edge', version: String(majorVersion) });
+      brands.push({ brand: 'Chromium', version: String(chromiumVersion) });
+      break;
+    case 'Opera':
+      brands.push({ brand: 'Opera', version: String(majorVersion) });
+      brands.push({ brand: 'Chromium', version: String(chromiumVersion) });
+      break;
+    default: // Pour Safari et Firefox, on ne met pas de brand Chromium
+      break;
+  }
+  brands.push({ brand: 'Not_A Brand', version: '8' });
+  return brands;
 }
 
 
@@ -174,15 +174,15 @@ export function generateCoherentProfile(config = {}) {
     doNotTrack: getRandomElement([null, '1']),
     maxTouchPoints: 0, // Toujours 0 pour desktop
   };
-  
+
   if (browserName === 'Firefox') {
     fakeNavigator.oscpu = selectedPlatform.includes('Win') ? 'Windows NT 10.0' : (selectedPlatform.includes('Mac') ? 'Intel Mac OS X 10.15' : 'Linux x86_64');
   }
-  
+
   if (browserName !== 'Firefox' && browserName !== 'Safari') {
-      fakeNavigator.appVersion = `5.0 (${browserInfo.macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserInfo.fullBrowserVersion} Safari/537.36`;
+    fakeNavigator.appVersion = `5.0 (${browserInfo.macPlatformForUA}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserInfo.fullBrowserVersion} Safari/537.36`;
   } else if (browserName === 'Safari') {
-      fakeNavigator.appVersion = `5.0 (${browserInfo.macPlatformForUA}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${browserInfo.fullBrowserVersion} Safari/605.1.15`;
+    fakeNavigator.appVersion = `5.0 (${browserInfo.macPlatformForUA}) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${browserInfo.fullBrowserVersion} Safari/605.1.15`;
   }
 
 
@@ -205,7 +205,7 @@ export function generateCoherentProfile(config = {}) {
   const resolution = (config.spoofScreenResolution === 'random' || !config.spoofScreenResolution)
     ? getRandomElement(SPOOFING_DATA.screenResolutions)
     : { width: parseInt(config.spoofScreenResolution.split('x')[0]), height: parseInt(config.spoofScreenResolution.split('x')[1]) };
-  
+
   const fakeScreenProperties = {
     width: resolution.width,
     height: resolution.height,
@@ -234,11 +234,11 @@ export function generateCoherentProfile(config = {}) {
   }];
 
   if (browserName !== 'Firefox' && browserName !== 'Safari') {
-      rules[0].action.requestHeaders.push(
-          { header: "Sec-CH-UA", operation: "set", value: secChUa },
-          { header: "Sec-CH-UA-Mobile", operation: "set", value: "?0" },
-          { header: "Sec-CH-UA-Platform", operation: "set", value: browserInfo.secChUaPlatformValue }
-      );
+    rules[0].action.requestHeaders.push(
+      { header: "Sec-CH-UA", operation: "set", value: secChUa },
+      { header: "Sec-CH-UA-Mobile", operation: "set", value: "?0" },
+      { header: "Sec-CH-UA-Platform", operation: "set", value: browserInfo.secChUaPlatformValue }
+    );
   }
 
   return {

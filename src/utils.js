@@ -27,11 +27,11 @@ export function getRandomInRange(min, max) {
     console.warn('⚠️ getRandomInRange called with non-number arguments');
     return 0;
   }
-  
+
   if (min > max) {
     [min, max] = [max, min]; // Swap si nécessaire
   }
-  
+
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -46,7 +46,7 @@ export function generateBrowserVersion(minVersion, maxVersion) {
     console.warn('⚠️ generateBrowserVersion called with non-number arguments');
     return '120.0.0';
   }
-  
+
   const major = getRandomInRange(minVersion, maxVersion);
   const minor = getRandomInRange(0, 99);
   return `${major}.${minor}.0`;
@@ -62,24 +62,24 @@ export function validateObject(obj, schema) {
   if (!obj || typeof obj !== 'object') {
     return false;
   }
-  
+
   for (const [key, validator] of Object.entries(schema)) {
     if (validator.required && !(key in obj)) {
       console.warn(`⚠️ Required property missing: ${key}`);
       return false;
     }
-    
+
     if (key in obj && validator.type && typeof obj[key] !== validator.type) {
       console.warn(`⚠️ Invalid type for property ${key}: expected ${validator.type}, got ${typeof obj[key]}`);
       return false;
     }
-    
+
     if (key in obj && validator.validate && !validator.validate(obj[key])) {
       console.warn(`⚠️ Validation failed for property ${key}`);
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -138,7 +138,7 @@ export function debounce(func, wait) {
  */
 export function throttle(func, limit) {
   let inThrottle;
-  return function(...args) {
+  return function (...args) {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
@@ -171,7 +171,7 @@ export function shuffleArray(array) {
     console.warn('⚠️ shuffleArray called with non-array argument');
     return [];
   }
-  
+
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -200,11 +200,11 @@ export function truncateString(str, maxLength, suffix = '...') {
   if (typeof str !== 'string') {
     return String(str);
   }
-  
+
   if (str.length <= maxLength) {
     return str;
   }
-  
+
   return str.substring(0, maxLength - suffix.length) + suffix;
 }
 
@@ -216,13 +216,13 @@ export function truncateString(str, maxLength, suffix = '...') {
  */
 export function formatBytes(bytes, decimals = 2) {
   if (!bytes || bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  
+
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
@@ -240,10 +240,10 @@ export function getRandomColor() {
  * @returns {boolean} True si objet plain
  */
 export function isPlainObject(obj) {
-  return obj !== null && 
-         typeof obj === 'object' && 
-         !Array.isArray(obj) && 
-         obj.constructor === Object;
+  return obj !== null &&
+    typeof obj === 'object' &&
+    !Array.isArray(obj) &&
+    obj.constructor === Object;
 }
 
 /**
@@ -255,7 +255,7 @@ export function isPlainObject(obj) {
 export function deepMerge(target, source) {
   if (!isPlainObject(target)) target = {};
   if (!isPlainObject(source)) return target;
-  
+
   Object.keys(source).forEach(key => {
     if (isPlainObject(source[key]) && isPlainObject(target[key])) {
       target[key] = deepMerge(target[key], source[key]);
@@ -263,7 +263,7 @@ export function deepMerge(target, source) {
       target[key] = source[key];
     }
   });
-  
+
   return target;
 }
 
@@ -285,20 +285,20 @@ export function sleep(ms) {
  */
 export async function retry(fn, maxRetries = 3, delay = 1000) {
   let lastError;
-  
+
   for (let i = 0; i <= maxRetries; i++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
       console.warn(`⚠️ Attempt ${i + 1}/${maxRetries + 1} failed:`, error.message);
-      
+
       if (i < maxRetries) {
         await sleep(delay * Math.pow(2, i)); // Backoff exponentiel
       }
     }
   }
-  
+
   throw lastError;
 }
 
@@ -314,7 +314,7 @@ export const VALIDATION_SCHEMAS = {
     fakeUserAgent: { required: true, type: 'string' },
     fakeScreen: { required: true, type: 'object' }
   },
-  
+
   settings: {
     ghostMode: { type: 'boolean' },
     spoofBrowser: { type: 'boolean' },

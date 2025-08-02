@@ -12,7 +12,7 @@ class FingerprintGuard {
     this.settingsManager = new SettingsManager();
     this.profileManager = new ProfileManager(this.settingsManager);
     this.spoofingService = new SpoofingService(this.settingsManager, this.profileManager);
-    
+
     this.messageHandlers = {
       'getSettings': this.handleGetSettings.bind(this),
       'updateSetting': this.handleUpdateSetting.bind(this),
@@ -39,8 +39,8 @@ class FingerprintGuard {
   setupEventListeners() {
     // Écouter les changements de paramètres pour mettre à jour le spoofing
     this.settingsManager.onChanged(async (changes) => {
-        console.log('⚙️ Settings changed, updating spoofing profile...', changes);
-        await this.spoofingService.updateSpoofingProfile();
+      console.log('⚙️ Settings changed, updating spoofing profile...', changes);
+      await this.spoofingService.updateSpoofingProfile();
     });
   }
 
@@ -70,11 +70,11 @@ class FingerprintGuard {
   async handleReloadAllTabs() {
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     for (const tab of tabs) {
-        try {
-            await chrome.tabs.reload(tab.id);
-        } catch (error) {
-            console.warn(`Could not reload tab ${tab.id}: ${error.message}`);
-        }
+      try {
+        await chrome.tabs.reload(tab.id);
+      } catch (error) {
+        console.warn(`Could not reload tab ${tab.id}: ${error.message}`);
+      }
     }
     return { reloaded: tabs.length };
   }

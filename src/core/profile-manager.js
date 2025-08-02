@@ -67,17 +67,17 @@ export class ProfileManager {
     const { protectionMode, generateNewProfileOnStart } = this.settingsManager.getAll();
 
     if (protectionMode === 'ghost') {
-        this.sessionProfile = null; // Pas de profil en mode Ghost
-        console.log('👻 Ghost mode active, session profile cleared.');
-        return;
+      this.sessionProfile = null; // Pas de profil en mode Ghost
+      console.log('👻 Ghost mode active, session profile cleared.');
+      return;
     }
 
     if (generateNewProfileOnStart || !this.sessionProfile) {
-        console.log('🔄 Generating new general session profile...');
-        this.sessionProfile = this.generateSessionProfile();
-        console.log('✅ General session profile generated:', this.sessionProfile.id);
+      console.log('🔄 Generating new general session profile...');
+      this.sessionProfile = this.generateSessionProfile();
+      console.log('✅ General session profile generated:', this.sessionProfile.id);
     } else {
-        console.log('🔄 Using existing general session profile:', this.sessionProfile.id);
+      console.log('🔄 Using existing general session profile:', this.sessionProfile.id);
     }
   }
 
@@ -91,10 +91,10 @@ export class ProfileManager {
     const data = generateCoherentProfile(profileSettings);
 
     const newProfile = {
-        id: `session_${Date.now()}`,
-        isSession: true,
-        createdAt: new Date().toISOString(),
-        data: data
+      id: `session_${Date.now()}`,
+      isSession: true,
+      createdAt: new Date().toISOString(),
+      data: data
     };
     console.log('✅ New random profile generated with ID:', newProfile.id);
     return newProfile;
@@ -124,11 +124,11 @@ export class ProfileManager {
     const data = generateCoherentProfile(profileSettings);
 
     const newProfile = {
-        id: `fixed_${Date.now()}`,
-        isSession: false,
-        createdAt: new Date().toISOString(),
-        name: `Profil ${this.profiles.length + 1}`,
-        data: data
+      id: `fixed_${Date.now()}`,
+      isSession: false,
+      createdAt: new Date().toISOString(),
+      name: `Profil ${this.profiles.length + 1}`,
+      data: data
     };
 
     this.profiles.push(newProfile);
@@ -170,10 +170,10 @@ export class ProfileManager {
 
     // Si le profil supprimé était actif, désactivez le mode de profil fixe.
     if (this.settingsManager.get('activeProfileId') === profileId) {
-        await this.settingsManager.setMultiple({
-            useFixedProfile: false,
-            activeProfileId: null
-        });
+      await this.settingsManager.setMultiple({
+        useFixedProfile: false,
+        activeProfileId: null
+      });
     }
   }
 }
