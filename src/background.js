@@ -1,6 +1,6 @@
 /**
  * Background Script for FingerprintGuard v3.0.0
- * Manages core services and responds to setting changes.
+ * Manages core services and responds to messages immediately.
  */
 
 import { SettingsManager } from './core/settings-manager.js';
@@ -12,25 +12,24 @@ class FingerprintGuard {
     this.settingsManager = new SettingsManager();
     this.profileManager = new ProfileManager(this.settingsManager);
     this.spoofingService = new SpoofingService(this.settingsManager, this.profileManager);
-    this.isInitialized = false;
-
+    
     this.messageHandlers = {
       'getSettings': this.handleGetSettings.bind(this),
       'updateSetting': this.handleUpdateSetting.bind(this),
+      'reloadAllTabs': this.handleReloadAllTabs.bind(this),
     };
 
-    this.initialize();
+    // Lancer l'initialisation et stocker la promesse
+    this.initializationPromise = this.initialize();
   }
 
   async initialize() {
-    if (this.isInitialized) return;
     try {
       console.log('🚀 Initializing FingerprintGuard v3.0.0...');
       await this.settingsManager.initialize();
       await this.profileManager.initialize();
-      await this.spoofingService.initialize(); // Initialise le service de spoofing
+      await this.spoofingService.initialize();
       this.setupEventListeners();
-      this.isInitialized = true;
       console.log('✅ FingerprintGuard initialized successfully');
     } catch (error) {
       console.error('❌ FingerprintGuard initialization failed:', error);
@@ -38,11 +37,6 @@ class FingerprintGuard {
   }
 
   setupEventListeners() {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleMessage(message, sender, sendResponse);
-      return true; // Pour sendResponse asynchrone
-    });
-
     // Écouter les changements de paramètres pour mettre à jour le spoofing
     this.settingsManager.onChanged(async (changes) => {
         console.log('⚙️ Settings changed, updating spoofing profile...', changes);
@@ -50,7 +44,10 @@ class FingerprintGuard {
     });
   }
 
+  // Le gestionnaire de messages attend la fin de l'initialisation
   async handleMessage(message, sender, sendResponse) {
+    await this.initializationPromise;
+
     const handler = this.messageHandlers[message.type];
     if (handler) {
       handler(message.payload)
@@ -66,11 +63,29 @@ class FingerprintGuard {
   }
 
   async handleUpdateSetting(payload) {
-    // La logique de mise à jour est maintenant dans le SettingsManager
-    // qui notifiera le changement via l'événement onChanged.
     await this.settingsManager.set(payload.key, payload.value);
     return { [payload.key]: payload.value };
   }
+
+  async handleReloadAllTabs() {
+    const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+    for (const tab of tabs) {
+        try {
+            await chrome.tabs.reload(tab.id);
+        } catch (error) {
+            console.warn(`Could not reload tab ${tab.id}: ${error.message}`);
+        }
+    }
+    return { reloaded: tabs.length };
+  }
 }
 
-new FingerprintGuard();
+// --- Point d'entrée du Service Worker ---
+
+const guard = new FingerprintGuard();
+
+// Enregistrer l'écouteur de messages de manière synchrone au plus haut niveau
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  guard.handleMessage(message, sender, sendResponse);
+  return true; // Indique une réponse asynchrone
+});
