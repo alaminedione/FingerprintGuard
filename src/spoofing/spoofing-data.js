@@ -20,15 +20,15 @@ function generateBrowserAndPlatformInfo(config) {
       'X11; Linux x86_64'
     ];
 
-    const selectedPlatform = config.platform === 'random' 
+    const selectedPlatform = (config.platform === 'random' || !config.platform) 
       ? getRandomElement(platforms) 
-      : (config.platform || getRandomElement(platforms));
+      : config.platform;
     
-    const selectedUaPlatform = config.uaPlatform === 'random' 
+    const selectedUaPlatform = (config.uaPlatform === 'random' || !config.uaPlatform) 
       ? getRandomElement(platforms) 
-      : (config.uaPlatform || getRandomElement(platforms));
+      : config.uaPlatform;
     
-    let browserName = config.browser === 'random' 
+    let browserName = (config.browser === 'random' || !config.browser) 
       ? getRandomElement(Object.keys(BROWSER_VERSIONS)) 
       : config.browser;
     

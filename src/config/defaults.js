@@ -67,7 +67,7 @@ export const VALIDATION_RULES = {
   stringFields: [
     'protectionMode', 'theme',
     // Champs de profil
-    'profile.platform', 'profile.language', 'profile.resolution', 
+    'profile.platform', 'profile.language', 
     'profile.browser', // Ajouté pour permettre la spécification du navigateur
     'profile.contentEncoding', 
     'profile.spoofDeviceType', 'profile.spoofDevicePixelRatio', 'profile.spoofScreenResolution',

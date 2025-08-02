@@ -24,19 +24,6 @@ export class ProfileManager {
     this.profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
     console.log('👤 Fixed profiles loaded:', this.profiles.length);
 
-    // Charger le profil Lucky Mode depuis le stockage de session
-    try {
-      const sessionStored = await chrome.storage.session.get('luckyModeProfile');
-      if (sessionStored.luckyModeProfile) {
-        this.luckyModeProfile = sessionStored.luckyModeProfile;
-        console.log('🍀 Loaded Lucky Mode profile from session storage:', this.luckyModeProfile.id);
-      } else {
-        console.log('🍀 No Lucky Mode profile found in session storage.');
-      }
-    } catch (error) {
-      console.error('❌ Error loading Lucky Mode profile from session storage:', error);
-    }
-
     // Gérer le profil de session (général, non Lucky Mode)
     await this.handleSessionProfile();
     console.log(`✅ ProfileManager initialized with ${this.profiles.length} saved profiles.`);
@@ -47,13 +34,25 @@ export class ProfileManager {
    * Ce profil est persistant pour la durée de la session du navigateur.
    * @returns {object} Le profil du mode Lucky.
    */
-  getLuckyModeProfile() {
+  async getLuckyModeProfile() {
     if (!this.luckyModeProfile) {
-      console.log('🍀 getLuckyModeProfile: No profile in memory, generating new one...');
-      this.luckyModeProfile = this.generateSessionProfile(); // Réutilise la logique de génération de profil de session
-      chrome.storage.session.set({ luckyModeProfile: this.luckyModeProfile })
-        .then(() => console.log('🍀 Lucky Mode profile saved to session storage:', this.luckyModeProfile.id))
-        .catch(error => console.error('❌ Error saving Lucky Mode profile to session storage:', error));
+      console.log('🍀 getLuckyModeProfile: No profile in memory, attempting to load from session storage...');
+      try {
+        const sessionStored = await chrome.storage.session.get('luckyModeProfile');
+        if (sessionStored.luckyModeProfile) {
+          this.luckyModeProfile = sessionStored.luckyModeProfile;
+          console.log('🍀 Loaded Lucky Mode profile from session storage:', this.luckyModeProfile.id);
+        } else {
+          console.log('🍀 No Lucky Mode profile found in session storage, generating new one...');
+          this.luckyModeProfile = this.generateSessionProfile();
+          await chrome.storage.session.set({ luckyModeProfile: this.luckyModeProfile });
+          console.log('🍀 Lucky Mode profile saved to session storage:', this.luckyModeProfile.id);
+        }
+      } catch (error) {
+        console.error('❌ Error in getLuckyModeProfile during loading/saving:', error);
+        // Fallback: générer un nouveau profil si le stockage échoue
+        this.luckyModeProfile = this.generateSessionProfile();
+      }
     } else {
       console.log('🍀 getLuckyModeProfile: Using existing profile from memory:', this.luckyModeProfile.id);
     }
