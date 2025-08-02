@@ -69,10 +69,8 @@ export const VALIDATION_RULES = {
     'protectionMode', 'theme',
     // Champs de profil
     'profile.platform', 'profile.language', 'profile.resolution', 
-    'profile.uaPlatform', 'profile.uaPlatformVersion', 'profile.uaArchitecture', 'profile.uaBitness',
-    'profile.uaWow64', 'profile.uaModel', 'profile.uaFullVersion', 'profile.browser',
-    'profile.secChUa', 'profile.secChUaMobile', 'profile.secChUaPlatform', 'profile.secChUaFullVersion',
-    'profile.secChUaPlatformVersion', 'profile.contentEncoding', 
+    'profile.browser', // Ajouté pour permettre la spécification du navigateur
+    'profile.contentEncoding', 
     'profile.spoofDeviceType', 'profile.spoofDevicePixelRatio', 'profile.spoofScreenResolution'
   ],
   booleanFields: [

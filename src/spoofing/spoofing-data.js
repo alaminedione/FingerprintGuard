@@ -41,18 +41,14 @@ function generateBrowserAndPlatformInfo(config) {
     const minNavVersion = config.minVersion || availableVersions[availableVersions.length - 1];
     const maxNavVersion = config.maxVersion || availableVersions[0];
     
-    let majorVersion = getRandomInRange(
-      Math.min(minNavVersion, maxNavVersion), 
-      Math.max(minNavVersion, maxNavVersion)
-    );
-    
+    let majorVersion = getRandomElement(availableVersions) || availableVersions[0];
     let fullBrowserVersion;
     let geckoVersion;
-    let secChUaPlatformValue;
 
     const basePlatformString = selectedPlatform.split(';')[0].trim();
     const baseUaPlatformString = selectedUaPlatform.split(';')[0].trim();
 
+    let secChUaPlatformValue;
     // Déterminer la plateforme pour les en-têtes
     if (baseUaPlatformString.includes('Windows')) secChUaPlatformValue = '"Windows"';
     else if (baseUaPlatformString.includes('Macintosh')) secChUaPlatformValue = '"macOS"';
@@ -64,18 +60,18 @@ function generateBrowserAndPlatformInfo(config) {
       const minorSafari = getRandomInRange(0, 5);
       fullBrowserVersion = `${majorVersion}.${minorSafari}`;
     } else if (browserName === 'Firefox') {
-      majorVersion = getRandomElement(availableVersions) || majorVersion;
-      fullBrowserVersion = `${majorVersion}.${getRandomInRange(0, 2)}.0`;
+      fullBrowserVersion = `${majorVersion}.0`;
       geckoVersion = `${majorVersion}.0`;
     } else {
       // Chrome, Edge, Opera
-      majorVersion = getRandomElement(availableVersions) || getRandomInRange(110, 125);
-      fullBrowserVersion = `${majorVersion}.${getRandomInRange(0, 9)}.${getRandomInRange(1000, 5000)}.${getRandomInRange(0, 99)}`;
+      fullBrowserVersion = `${majorVersion}.0.0.0`;
     }
 
     const macPlatformForUA = selectedPlatform.includes('Macintosh') 
       ? 'Macintosh; Intel Mac OS X 10_15_7' 
       : selectedPlatform;
+
+    const platformData = SPOOFING_DATA.platforms[selectedPlatform] || SPOOFING_DATA.platforms['Windows NT 10.0; Win64; x64'];
 
     return {
       browserName,
@@ -87,7 +83,8 @@ function generateBrowserAndPlatformInfo(config) {
       basePlatformString,
       baseUaPlatformString,
       secChUaPlatformValue,
-      macPlatformForUA
+      macPlatformForUA,
+      platformData
     };
   } catch (error) {
     console.error('❌ Error generating browser info:', error);
@@ -116,7 +113,7 @@ function generateBrowserAndPlatformInfo(config) {
 export function getFakeNavigatorProperties(config) {
   try {
     const browserInfo = generateBrowserAndPlatformInfo(config);
-    const platformData = SPOOFING_DATA.platforms[browserInfo.selectedPlatform] || SPOOFING_DATA.platforms['Windows NT 10.0; Win64; x64'];
+    const platformData = browserInfo.platformData;
 
     // Générer les propriétés cohérentes
     const hardwareConcurrency = config.hardwareConcurrency === 0 || config.hardwareConcurrency === 'random'
@@ -365,12 +362,19 @@ function getAppVersionString(browserInfo) {
 }
 
 function getOsCpuString(platform) {
-  if (platform.includes('Windows')) return platform;
+  if (platform.includes('Windows')) return 'Windows NT 10.0';
+  if (platform.includes('Macintosh')) return 'Intel Mac OS X';
+  if (platform.includes('Linux')) return 'X11; Linux x86_64';
   return undefined;
 }
 
 function getMaxTouchPoints(platform) {
-  return platform.includes('Mobile') || platform.includes('Android') ? getRandomInRange(1, 10) : 0;
+  // Si la plateforme est mobile (Android ou iOS), retourne un nombre aléatoire de points de contact
+  if (platform.includes('Android') || platform.includes('iPhone') || platform.includes('iPad')) {
+    return getRandomInRange(1, 10);
+  }
+  // Sinon, retourne 0 pour les plateformes de bureau
+  return 0;
 }
 
 function getPlatformForUA(platform) {

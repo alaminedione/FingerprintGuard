@@ -4,6 +4,51 @@ class FingerprintGuardSettings {
         this.theme = 'light';
         this.isDirty = false;
 
+        this.excludedProfileKeys = [
+            'uaPlatform', 'uaPlatformVersion', 'uaArchitecture', 'uaBitness',
+            'uaWow64', 'uaModel', 'uaFullVersion', 'secChUa',
+            'secChUaMobile', 'secChUaPlatform', 'secChUaFullVersion',
+            'secChUaPlatformVersion'
+        ];
+
+        // Données pour les listes déroulantes
+        this.SPOOFING_DATA = {
+            platforms: {
+                'Windows NT 10.0; Win64; x64': { platform: 'Win32', hardwareConcurrency: [4, 8, 12, 16], deviceMemory: [4, 8, 16, 32], languages: ['en-US', 'en-GB', 'fr-FR', 'de-DE', 'es-ES'] },
+                'Windows NT 10.0; WOW64': { platform: 'Win32', hardwareConcurrency: [2, 4, 8], deviceMemory: [4, 8, 16], languages: ['en-US', 'en-GB', 'fr-FR', 'de-DE'] },
+                'Macintosh; Intel Mac OS X 10_15_7': { platform: 'MacIntel', hardwareConcurrency: [4, 8, 12], deviceMemory: [8, 16, 32], languages: ['en-US', 'en-GB', 'fr-FR', 'de-DE'] },
+                'X11; Linux x86_64': { platform: 'Linux x86_64', hardwareConcurrency: [2, 4, 8, 16], deviceMemory: [4, 8, 16, 32], languages: ['en-US', 'en-GB', 'fr-FR', 'de-DE', 'es-ES'] }
+            },
+            screenResolutions: [
+                { width: 1920, height: 1080 }, { width: 1366, height: 768 }, { width: 1440, height: 900 },
+                { width: 1536, height: 864 }, { width: 1600, height: 900 }, { width: 2560, height: 1440 },
+                { width: 3840, height: 2160 }
+            ],
+            devicePixelRatios: [1, 1.25, 1.5, 2, 2.5, 3],
+            timezones: [
+                'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris',
+                'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney'
+            ],
+        };
+
+        this.BROWSER_VERSIONS = {
+            Chrome: [120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110],
+            Firefox: [119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109],
+            Safari: [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7],
+            Edge: [119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109],
+            Opera: [104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94]
+        };
+
+        this.selectOptions = {
+            'profile.platform': Object.keys(this.SPOOFING_DATA.platforms),
+            'profile.browser': Object.keys(this.BROWSER_VERSIONS),
+            'profile.spoofDevicePixelRatio': this.SPOOFING_DATA.devicePixelRatios.map(String),
+            'profile.spoofScreenResolution': this.SPOOFING_DATA.screenResolutions.map(res => `${res.width}x${res.height}`),
+            'profile.language': this.SPOOFING_DATA.platforms['Windows NT 10.0; Win64; x64'].languages, // Exemple, peut être amélioré
+            'profile.hardwareConcurrency': Array.from(new Set(Object.values(this.SPOOFING_DATA.platforms).flatMap(p => p.hardwareConcurrency))).sort((a, b) => a - b).map(String),
+            'profile.deviceMemory': Array.from(new Set(Object.values(this.SPOOFING_DATA.platforms).flatMap(p => p.deviceMemory))).sort((a, b) => a - b).map(String),
+            'profile.timezone': this.SPOOFING_DATA.timezones,
+        };
         this.elements = {
             themeToggle: document.getElementById('themeToggle'),
             saveButton: document.getElementById('saveSettings'),
@@ -84,8 +129,17 @@ class FingerprintGuardSettings {
         content.className = 'card-content form-grid';
 
         for (const key in settingsGroup) {
+            // Exclure les clés dérivées du profil si le groupe est 'profile'
+            if (groupName === 'profile' && this.excludedProfileKeys.includes(key)) {
+                continue;
+            }
+
+            const fullKey = `${groupName}.${key}`;
             const value = settingsGroup[key];
-            if (typeof value === 'boolean') {
+
+            if (this.selectOptions[fullKey]) {
+                this.createSelectField(content, key, value, groupName, this.selectOptions[fullKey]);
+            } else if (typeof value === 'boolean') {
                 this.createBooleanField(content, key, value, groupName);
             } else {
                 this.createTextField(content, key, value, groupName);
@@ -115,6 +169,28 @@ class FingerprintGuardSettings {
         formGroup.innerHTML = `
             <label for="${group}-${key}">${this.formatLabel(key)}</label>
             <input type="text" id="${group}-${key}" class="form-input" value="${value}">
+        `;
+        container.appendChild(formGroup);
+    }
+
+    createSelectField(container, key, value, group, options) {
+        const formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+        const selectId = `${group}-${key}`;
+        let optionsHtml = options.map(optionValue => 
+            `<option value="${optionValue}" ${optionValue === value ? 'selected' : ''}>${optionValue}</option>`
+        ).join('');
+
+        // Ajouter l'option 'random' si elle n'est pas déjà présente
+        if (!options.includes('random')) {
+            optionsHtml = `<option value="random" ${value === 'random' ? 'selected' : ''}>Random</option>` + optionsHtml;
+        }
+
+        formGroup.innerHTML = `
+            <label for="${selectId}">${this.formatLabel(key)}</label>
+            <select id="${selectId}" class="form-select">
+                ${optionsHtml}
+            </select>
         `;
         container.appendChild(formGroup);
     }
