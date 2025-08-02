@@ -10,20 +10,34 @@ import { BROWSER_VERSIONS, SPOOFING_DATA } from '../config/defaults.js';
 
 function generateBrowserAndPlatformInfo(config = {}) {
   try {
-    const platforms = [
-      'Windows NT 10.0; Win64; x64',
-      'Windows NT 10.0; WOW64',
-      'Macintosh; Intel Mac OS X 10_15_7',
-      'X11; Linux x86_64'
-    ];
+    const ecosystems = {
+      windows: {
+        platforms: ['Windows NT 10.0; Win64; x64', 'Windows NT 10.0; WOW64'],
+        browsers: ['Chrome', 'Firefox', 'Edge', 'Opera']
+      },
+      macos: {
+        platforms: ['Macintosh; Intel Mac OS X 10_15_7'],
+        browsers: ['Chrome', 'Firefox', 'Safari', 'Opera']
+      },
+      linux: {
+        platforms: ['X11; Linux x86_64'],
+        browsers: ['Chrome', 'Firefox', 'Opera']
+      }
+    };
 
-    const selectedPlatform = (config.platform === 'random' || !config.platform)
-      ? getRandomElement(platforms)
-      : config.platform;
+    let selectedPlatform, browserName;
 
-    let browserName = (config.browser === 'random' || !config.browser)
-      ? getRandomElement(Object.keys(BROWSER_VERSIONS))
-      : config.browser;
+    if (config.platform === 'random' || !config.platform) {
+      const selectedOs = getRandomElement(Object.keys(ecosystems));
+      selectedPlatform = getRandomElement(ecosystems[selectedOs].platforms);
+      browserName = getRandomElement(ecosystems[selectedOs].browsers);
+    } else {
+      selectedPlatform = config.platform;
+      const os = selectedPlatform.includes('Win') ? 'windows' : (selectedPlatform.includes('Mac') ? 'macos' : 'linux');
+      browserName = (config.browser === 'random' || !config.browser || !ecosystems[os].browsers.includes(config.browser)) 
+        ? getRandomElement(ecosystems[os].browsers)
+        : config.browser;
+    }
 
     if (!BROWSER_VERSIONS[browserName]) {
       console.warn(`⚠️ Unknown browser ${browserName}, falling back to Chrome`);
@@ -179,9 +193,9 @@ export function generateCoherentProfile(config = {}) {
     mobile: false,
     platform: browserInfo.secChUaPlatformValue.replace(/"/g, ''), // "Windows" -> Windows
     architecture: selectedPlatform.includes('x64') ? 'x86' : 'arm',
-    bitness: selectedPlatform.includes('x64') ? '64' : '32',
+    bitness: selectedPlatform.includes('WOW64') ? '32' : (selectedPlatform.includes('x64') ? '64' : '32'),
     model: '',
-    platformVersion: selectedPlatform.match(/(\d+_\d+_\d+)|(\d+\.\d+)/)?.[0].replace(/_/g, '.') || '10.0',
+    platformVersion: selectedPlatform.includes('Linux') ? '' : (selectedPlatform.match(/(\d+_\d+_\d+)|(\d+\.\d+)/)?.[0].replace(/_/g, '.') || '10.0'),
     uaFullVersion: browserInfo.fullBrowserVersion,
     fullVersionList: brands.map(b => ({ brand: b.brand, version: browserInfo.fullBrowserVersion })),
     wow64: selectedPlatform.includes('WOW64'),
