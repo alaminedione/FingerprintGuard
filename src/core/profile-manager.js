@@ -9,8 +9,8 @@ export class ProfileManager {
   constructor(settingsManager) {
     this.settingsManager = settingsManager;
     this.profiles = []; // Pour les profils fixes sauvegardés
-    this.sessionProfile = null; // Pour le profil généré par session
     this.luckyModeProfile = null; // Pour le profil du mode Lucky
+    this.sessionProfile = null; // Pour le profil généré par session
   }
 
   /**
@@ -22,6 +22,13 @@ export class ProfileManager {
     // Charger les profils fixes stockés
     const stored = await chrome.storage.local.get('profiles');
     this.profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
+
+    // Charger le profil Lucky Mode depuis le stockage de session
+    const sessionStored = await chrome.storage.session.get('luckyModeProfile');
+    if (sessionStored.luckyModeProfile) {
+      this.luckyModeProfile = sessionStored.luckyModeProfile;
+      console.log('🍀 Loaded Lucky Mode profile from session storage.');
+    }
 
     // Gérer le profil de session
     await this.handleSessionProfile();
@@ -37,6 +44,7 @@ export class ProfileManager {
     if (!this.luckyModeProfile) {
       console.log('🍀 Generating new Lucky Mode profile...');
       this.luckyModeProfile = this.generateSessionProfile(); // Réutilise la logique de génération de profil de session
+      chrome.storage.session.set({ luckyModeProfile: this.luckyModeProfile }); // Sauvegarder dans le stockage de session
     }
     return this.luckyModeProfile;
   }
