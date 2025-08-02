@@ -3,23 +3,14 @@
  * Centralise toutes les opérations de spoofing en fonction du mode de protection
  */
 
-import {
-  getFakeNavigatorProperties,
-  getFakeUserAgentData,
-  getFakeUserAgent,
-  getFakeScreenProperties,
-  getNewRules
-} from '../spoofing/spoofing-data.js';
-
+import { generateCoherentProfile } from '../spoofing/spoofing-data.js';
 import {
   applySpoofingNavigator,
   applyUserAgentData,
-  applyUserAgent,
   applyScreenSpoofing,
   spoofWebGL,
   applyGhostMode
 } from '../spoofing/spoofing-apply.js';
-
 import { ScriptInjector } from './script-injector.js';
 
 export class SpoofingService {
@@ -29,22 +20,15 @@ export class SpoofingService {
     this.scriptInjector = new ScriptInjector();
   }
 
-  /**
-   * Applique les protections pour un onglet donné en fonction des paramètres actuels
-   * @param {number} tabId - ID de l'onglet
-   * @param {string} url - URL de l'onglet
-   */
   async applyProtectionsForTab(tabId, url) {
-    if (!this.canSpoofUrl(url)) {
-      return;
-    }
+    if (!this.canSpoofUrl(url)) return;
 
     const settings = this.settingsManager.getAll();
     const { protectionMode } = settings;
 
     switch (protectionMode) {
       case 'lucky':
-        await this.applyLuckyMode(tabId, settings);
+        await this.applyLuckyMode(tabId);
         break;
       case 'advanced':
         await this.applyAdvancedMode(tabId, settings);
@@ -52,112 +36,70 @@ export class SpoofingService {
       case 'ghost':
         await this.applyGhostMode(tabId);
         break;
-      case 'none': // Nouveau cas pour désactiver la protection
+      case 'none':
         console.log(`🚫 Protection disabled for tab: ${tabId}`);
-        // Ne rien faire, ou réinitialiser si nécessaire
         break;
     }
   }
 
-  /**
-   * Applique le mode "I'm Feeling Lucky"
-   * @param {number} tabId - ID de l'onglet
-   * @param {object} settings - Paramètres de l'extension
-   */
-  async applyLuckyMode(tabId, settings) {
+  async applyLuckyMode(tabId) {
     console.log(`🍀 Applying Lucky Mode to tab: ${tabId}`);
-    // En mode Lucky, toutes les protections sont activées
-    const allProtectionsOn = { ...settings.advancedSettings };
-    for (const key in allProtectionsOn) {
-        allProtectionsOn[key] = true;
-    }
-    // S'assurer que le blocage de JS et des images est désactivé en mode Lucky
-    allProtectionsOn.blockJS = false;
-    allProtectionsOn.blockImages = false;
-
-    await this.applyAllSpoofing(tabId, allProtectionsOn, this.profileManager.getLuckyModeProfile().data);
+    // En mode Lucky, on génère un profil aléatoire complet sans config spécifique.
+    const profile = generateCoherentProfile(); 
+    await this.applyAllSpoofing(tabId, { spoofBrowser: true, spoofCanvas: true, spoofScreen: true }, profile);
   }
 
-  /**
-   * Applique le mode "Avancé"
-   * @param {number} tabId - ID de l'onglet
-   * @param {object} settings - Paramètres de l'extension
-   */
   async applyAdvancedMode(tabId, settings) {
     console.log(`⚙️ Applying Advanced Mode to tab: ${tabId}`);
-    await this.applyAllSpoofing(tabId, settings.advancedSettings, settings.profile);
+    const profile = this.getSpoofingProfile(settings.profile);
+    await this.applyAllSpoofing(tabId, settings.advancedSettings, profile);
   }
 
-  /**
-   * Applique le "Ghost Mode"
-   * @param {number} tabId - ID de l'onglet
-   */
   async applyGhostMode(tabId) {
     console.log(`👻 Applying Ghost Mode to tab: ${tabId}`);
     await this.scriptInjector.inject(tabId, applyGhostMode);
   }
 
-  /**
-   * Applique toutes les techniques de spoofing en fonction des paramètres fournis
-   * @param {number} tabId - ID de l'onglet
-   * @param {object} advancedSettings - Les paramètres de protection avancés
-   * @param {object} profileSettings - Les paramètres du profil de spoofing
-   */
-  async applyAllSpoofing(tabId, advancedSettings, profileSettings) {
+  getSpoofingProfile(profileSettings) {
+    const useFixed = this.settingsManager.get('useFixedProfile');
+    const current = this.profileManager.getCurrent();
+    if (useFixed && current) {
+      return current.data;
+    }
+    return generateCoherentProfile(profileSettings);
+  }
+
+  async applyAllSpoofing(tabId, advancedSettings, profile) {
     const injections = [];
-    const currentProfile = this.profileManager.getCurrent();
 
     if (advancedSettings.spoofBrowser) {
-        const spoofingData = this.getSpoofingData(profileSettings, currentProfile);
-        injections.push({ script: applySpoofingNavigator, args: [spoofingData.fakeNavigator] });
-        injections.push({ script: applyUserAgentData, args: [spoofingData.fakeUserAgentData] });
-        injections.push({ script: applyUserAgent, args: [spoofingData.fakeUserAgent] });
-        await this.applyHttpRules(spoofingData.rules);
+      injections.push({ script: applySpoofingNavigator, args: [profile.fakeNavigator] });
+      // N'injecter les userAgentData que pour les navigateurs Chromium
+      if (profile.fakeNavigator.vendor === 'Google Inc.') {
+          injections.push({ script: applyUserAgentData, args: [profile.fakeUserAgentData] });
+      }
+      await this.applyHttpRules(profile.rules);
     }
 
     if (advancedSettings.spoofCanvas) {
-        injections.push({ script: spoofWebGL });
+      injections.push({ script: spoofWebGL });
     }
 
     if (advancedSettings.spoofScreen) {
-        const fakeScreenProps = getFakeScreenProperties(profileSettings);
-        injections.push({ script: applyScreenSpoofing, args: [fakeScreenProps] });
+      injections.push({ script: applyScreenSpoofing, args: [profile.fakeScreenProperties] });
     }
 
     if (injections.length > 0) {
-        await this.scriptInjector.injectMultiple(tabId, injections);
+      await this.scriptInjector.injectMultiple(tabId, injections);
     }
 
     await this.applyContentSettings(advancedSettings);
   }
 
-  /**
-   * Récupère les données de spoofing (depuis profil ou génération)
-   * @param {object} profileSettings - Paramètres du profil
-   * @param {object|null} currentProfile - Profil de session actuel
-   * @returns {object} Données de spoofing
-   */
-  getSpoofingData(profileSettings, currentProfile) {
-    if (this.settingsManager.get('useFixedProfile') && currentProfile) {
-      return currentProfile.data;
-    }
-    // Génère des données à la volée pour les profils de session
-    return {
-      fakeNavigator: getFakeNavigatorProperties(profileSettings),
-      fakeUserAgentData: getFakeUserAgentData(profileSettings, profileSettings.browser),
-      fakeUserAgent: getFakeUserAgent(profileSettings),
-      rules: getNewRules(profileSettings, 1)
-    };
-  }
-
-  /**
-   * Applique les règles de modification des en-têtes HTTP
-   * @param {Array} rules - Règles à appliquer
-   */
   async applyHttpRules(rules) {
     try {
       await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: [1], // ID de règle pour le spoofing standard
+        removeRuleIds: [1],
         addRules: rules,
       });
     } catch (error) {
@@ -165,10 +107,6 @@ export class SpoofingService {
     }
   }
 
-  /**
-   * Applique les paramètres de contenu (blocage JS/images)
-   * @param {object} advancedSettings - Paramètres de protection avancés
-   */
   async applyContentSettings(advancedSettings) {
     try {
       await chrome.contentSettings.javascript.set({
@@ -184,11 +122,6 @@ export class SpoofingService {
     }
   }
 
-  /**
-   * Vérifie si une URL peut recevoir du spoofing
-   * @param {string} url - URL à vérifier
-   * @returns {boolean}
-   */
   canSpoofUrl(url) {
     if (!url) return false;
     const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'about:', 'moz-extension://'];

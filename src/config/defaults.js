@@ -90,11 +90,11 @@ export const VALIDATION_RULES = {
  * Versions de navigateurs supportées pour le spoofing
  */
 export const BROWSER_VERSIONS = {
-  Chrome: [120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110],
-  Firefox: [119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109],
-  Safari: [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7],
-  Edge: [119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109],
-  Opera: [104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94]
+  Chrome: [126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116],
+  Firefox: [127, 126, 125, 124, 123, 122, 121, 120, 119, 118, 117],
+  Safari: [17, 16, 15, 14, 13],
+  Edge: [126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116],
+  Opera: [112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102]
 };
 
 /**
@@ -135,7 +135,10 @@ export const SPOOFING_DATA = {
     { width: 1536, height: 864 },
     { width: 1600, height: 900 },
     { width: 2560, height: 1440 },
-    { width: 3840, height: 2160 }
+    { width: 3840, height: 2160 },
+    { width: 1920, height: 1200 },
+    { width: 2560, height: 1080 },
+    { width: 3440, height: 1440 }
   ],
 
   devicePixelRatios: [1, 1.25, 1.5, 2, 2.5, 3],

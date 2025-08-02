@@ -3,7 +3,7 @@
  * Gère la création, la validation et l'utilisation des profils de session et fixes.
  */
 
-import { getFakeNavigatorProperties, getFakeUserAgentData, getFakeUserAgent, getFakeScreenProperties, getNewRules } from '../spoofing/spoofing-data.js';
+import { generateCoherentProfile } from '../spoofing/spoofing-data.js';
 
 export class ProfileManager {
   constructor(settingsManager) {
@@ -88,13 +88,7 @@ export class ProfileManager {
   generateSessionProfile() {
     console.log('✨ Generating a new random profile...');
     const profileSettings = this.settingsManager.get('profile');
-    const data = {
-        fakeNavigator: getFakeNavigatorProperties(profileSettings),
-        fakeUserAgentData: getFakeUserAgentData(profileSettings, profileSettings.browser),
-        fakeUserAgent: getFakeUserAgent(profileSettings),
-        fakeScreen: getFakeScreenProperties(profileSettings),
-        rules: getNewRules(profileSettings, 1),
-    };
+    const data = generateCoherentProfile(profileSettings);
 
     const newProfile = {
         id: `session_${Date.now()}`,
@@ -127,13 +121,7 @@ export class ProfileManager {
    */
   async createFixedProfile() {
     const profileSettings = this.settingsManager.get('profile');
-    const data = {
-        fakeNavigator: getFakeNavigatorProperties(profileSettings),
-        fakeUserAgentData: getFakeUserAgentData(profileSettings, profileSettings.browser),
-        fakeUserAgent: getFakeUserAgent(profileSettings),
-        fakeScreen: getFakeScreenProperties(profileSettings),
-        rules: getNewRules(profileSettings, 1),
-    };
+    const data = generateCoherentProfile(profileSettings);
 
     const newProfile = {
         id: `fixed_${Date.now()}`,
