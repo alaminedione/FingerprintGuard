@@ -81,6 +81,12 @@ export default {
 
           fs.copyFileSync('./manifest.json', path.resolve(__dirname, 'dist/manifest.json'));
 
+          // Modifier le chemin du service worker dans le manifest de destination
+          const manifestPath = path.resolve(__dirname, 'dist/manifest.json');
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          manifest.background.service_worker = 'background.js'; // Le chemin corrigé
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4));
+
           const spoofCanvasOutput = path.resolve(__dirname, 'dist/spoofer/spoof-canvas.js');
           const spoofCanvasSource = compilation.assets['spoofCanvas.js'].source();
           fs.writeFileSync(spoofCanvasOutput, spoofCanvasSource);

@@ -177,6 +177,9 @@ class FingerprintGuardSettings {
                     this.createTextField(content, key, value, groupName);
                 }
             }
+            if (groupName === 'advancedSettings') {
+                this.createBooleanField(content, 'useStealthInjection', this.settings.advancedSettings.useStealthInjection, 'advancedSettings');
+            }
         }
 
         card.appendChild(content);

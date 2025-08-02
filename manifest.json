@@ -12,7 +12,8 @@
         "tabs",
         "notifications",
         "alarms",
-        "privacy"
+        "privacy",
+        "userScripts"
     ],
     "host_permissions": [
         "<all_urls>"

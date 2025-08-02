@@ -1,63 +1,58 @@
 /**
  * Service de spoofing pour FingerprintGuard v3.0.0
- * Centralise toutes les opérations de spoofing en fonction du mode de protection
+ * Utilise l'API userScripts pour une injection précoce et fiable.
  */
 
 import { generateCoherentProfile } from '../spoofing/spoofing-data.js';
-import {
-  applySpoofingNavigator,
-  applyUserAgentData,
-  applyScreenSpoofing,
-  spoofWebGL,
-  applyGhostMode
-} from '../spoofing/spoofing-apply.js';
-import { ScriptInjector } from './script-injector.js';
+import { applyAtomicSpoofing } from '../spoofing/atomic-apply.js';
+
+const SCRIPT_ID = 'fingerprint-guard-script';
 
 export class SpoofingService {
   constructor(settingsManager, profileManager) {
     this.settingsManager = settingsManager;
     this.profileManager = profileManager;
-    this.scriptInjector = new ScriptInjector();
+    this.currentProfile = null;
   }
 
-  async applyProtectionsForTab(tabId, url) {
-    if (!this.canSpoofUrl(url)) return;
+  /**
+   * Initialise le service et enregistre le script utilisateur initial.
+   */
+  async initialize() {
+    await this.updateSpoofingProfile();
+  }
 
+  /**
+   * Met à jour le profil de spoofing et ré-enregistre le script utilisateur.
+   * C'est la méthode centrale qui applique les changements.
+   */
+  async updateSpoofingProfile() {
     const settings = this.settingsManager.getAll();
-    const { protectionMode } = settings;
+    const { protectionMode, advancedSettings } = settings;
 
-    switch (protectionMode) {
-      case 'lucky':
-        await this.applyLuckyMode(tabId);
-        break;
-      case 'advanced':
-        await this.applyAdvancedMode(tabId, settings);
-        break;
-      case 'ghost':
-        await this.applyGhostMode(tabId);
-        break;
-      case 'none':
-        console.log(`🚫 Protection disabled for tab: ${tabId}`);
-        break;
+    // Désenregistrer l'ancien script avant d'en créer un nouveau
+    await this.unregisterSpoofingScript();
+
+    if (protectionMode === 'none' || protectionMode === 'ghost') {
+      console.log(`🚫 Spoofing disabled for mode: ${protectionMode}`);
+      return;
     }
-  }
 
-  async applyLuckyMode(tabId) {
-    console.log(`🍀 Applying Lucky Mode to tab: ${tabId}`);
-    // En mode Lucky, on génère un profil aléatoire complet sans config spécifique.
-    const profile = generateCoherentProfile(); 
-    await this.applyAllSpoofing(tabId, { spoofBrowser: true, spoofCanvas: true, spoofScreen: true }, profile);
-  }
+    let profile;
+    if (protectionMode === 'lucky') {
+      profile = generateCoherentProfile();
+    } else { // advanced mode
+      profile = this.getSpoofingProfile(settings.profile);
+    }
+    this.currentProfile = profile;
 
-  async applyAdvancedMode(tabId, settings) {
-    console.log(`⚙️ Applying Advanced Mode to tab: ${tabId}`);
-    const profile = this.getSpoofingProfile(settings.profile);
-    await this.applyAllSpoofing(tabId, settings.advancedSettings, profile);
-  }
-
-  async applyGhostMode(tabId) {
-    console.log(`👻 Applying Ghost Mode to tab: ${tabId}`);
-    await this.scriptInjector.inject(tabId, applyGhostMode);
+    // Enregistrer le nouveau script avec le profil mis à jour
+    await this.registerSpoofingScript(profile, advancedSettings);
+    
+    // Mettre à jour les règles d'en-tête séparément
+    if (advancedSettings.spoofBrowser) {
+        await this.applyHttpRules(profile.rules);
+    }
   }
 
   getSpoofingProfile(profileSettings) {
@@ -69,33 +64,40 @@ export class SpoofingService {
     return generateCoherentProfile(profileSettings);
   }
 
-  async applyAllSpoofing(tabId, advancedSettings, profile) {
-    const injections = [];
+  /**
+   * Enregistre le script de spoofing avec l'API userScripts.
+   */
+  async registerSpoofingScript(profile, advancedSettings) {
+    if (!advancedSettings.spoofBrowser) return;
 
-    if (advancedSettings.spoofBrowser) {
-      injections.push({ script: applySpoofingNavigator, args: [profile.fakeNavigator] });
-      // N'injecter les userAgentData que pour les navigateurs Chromium
-      if (profile.fakeNavigator.vendor === 'Google Inc.') {
-          injections.push({ script: applyUserAgentData, args: [profile.fakeUserAgentData] });
-      }
-      await this.applyHttpRules(profile.rules);
+    try {
+      await chrome.userScripts.register([{
+        id: SCRIPT_ID,
+        matches: ['<all_urls>'],
+        js: [{ code: `(${applyAtomicSpoofing.toString()})(${JSON.stringify(profile)});` }],
+        runAt: 'document_start',
+        world: 'MAIN',
+      }]);
+      console.log('✅ User script for spoofing registered successfully.');
+    } catch (error) {
+      console.error('❌ Error registering user script:', error);
     }
-
-    if (advancedSettings.spoofCanvas) {
-      injections.push({ script: spoofWebGL });
-    }
-
-    if (advancedSettings.spoofScreen) {
-      injections.push({ script: applyScreenSpoofing, args: [profile.fakeScreenProperties] });
-    }
-
-    if (injections.length > 0) {
-      await this.scriptInjector.injectMultiple(tabId, injections);
-    }
-
-    await this.applyContentSettings(advancedSettings);
   }
 
+  /**
+   * Désenregistre le script de spoofing.
+   */
+  async unregisterSpoofingScript() {
+    try {
+      await chrome.userScripts.unregister({ ids: [SCRIPT_ID] });
+    } catch (error) {
+      // Une erreur ici signifie probablement que le script n'était pas enregistré, ce qui est ok.
+    }
+  }
+
+  /**
+   * Applique les règles de modification des en-têtes HTTP.
+   */
   async applyHttpRules(rules) {
     try {
       await chrome.declarativeNetRequest.updateDynamicRules({
@@ -105,26 +107,5 @@ export class SpoofingService {
     } catch (error) {
       console.error('❌ Error applying HTTP rules:', error);
     }
-  }
-
-  async applyContentSettings(advancedSettings) {
-    try {
-      await chrome.contentSettings.javascript.set({
-        primaryPattern: '<all_urls>',
-        setting: advancedSettings.blockJS ? 'block' : 'allow'
-      });
-      await chrome.contentSettings.images.set({
-        primaryPattern: '<all_urls>',
-        setting: advancedSettings.blockImages ? 'block' : 'allow'
-      });
-    } catch (error) {
-      console.warn('⚠️ Could not apply content settings:', error.message);
-    }
-  }
-
-  canSpoofUrl(url) {
-    if (!url) return false;
-    const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'about:', 'moz-extension://'];
-    return !restrictedPrefixes.some(prefix => url.startsWith(prefix));
   }
 }

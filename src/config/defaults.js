@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
     audio: true,
     fonts: true,
     experimental: true,
+    useStealthInjection: false, // Ajout du nouveau paramètre
     blockImages: false,
     blockJS: false,
   },
