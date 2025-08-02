@@ -18,7 +18,6 @@ export const DEFAULT_SETTINGS = {
     webrtc: true,
     audio: true,
     fonts: true,
-    timezone: true,
     experimental: true,
     blockImages: false,
     blockJS: false,
@@ -49,11 +48,11 @@ export const DEFAULT_SETTINGS = {
     secChUaPlatform: 'random',
     secChUaFullVersion: 'random',
     secChUaPlatformVersion: 'random',
-    hDeviceMemory: 0, // 0 = aléatoire
     contentEncoding: 'random',
     spoofDeviceType: 'random',
     spoofDevicePixelRatio: 'random',
     spoofScreenResolution: 'random',
+    timezone: 'random', // Déplacé de advancedSettings
   },
   
   // Gestion des profils
@@ -71,19 +70,19 @@ export const VALIDATION_RULES = {
     'profile.platform', 'profile.language', 'profile.resolution', 
     'profile.browser', // Ajouté pour permettre la spécification du navigateur
     'profile.contentEncoding', 
-    'profile.spoofDeviceType', 'profile.spoofDevicePixelRatio', 'profile.spoofScreenResolution'
+    'profile.spoofDeviceType', 'profile.spoofDevicePixelRatio', 'profile.spoofScreenResolution',
+    'profile.timezone' // Ajouté pour permettre la spécification du fuseau horaire
   ],
   booleanFields: [
     'autoReloadAll', 'autoReloadCurrent', 'useFixedProfile', 'generateNewProfileOnStart',
     // Champs de paramètres avancés
     'advancedSettings.spoofBrowser', 'advancedSettings.spoofCanvas', 'advancedSettings.spoofScreen', 
     'advancedSettings.webrtc', 'advancedSettings.audio', 'advancedSettings.fonts', 
-    'advancedSettings.timezone', 'advancedSettings.experimental', 'advancedSettings.blockImages', 'advancedSettings.blockJS'
+    'advancedSettings.experimental', 'advancedSettings.blockImages', 'advancedSettings.blockJS'
   ],
   numberFields: [
     // Champs de profil
-    'profile.hardwareConcurrency', 'profile.deviceMemory', 'profile.minVersion', 'profile.maxVersion',
-    'profile.hDeviceMemory'
+    'profile.hardwareConcurrency', 'profile.deviceMemory', 'profile.minVersion', 'profile.maxVersion'
   ],
 };
 

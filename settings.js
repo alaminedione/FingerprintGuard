@@ -44,10 +44,16 @@ class FingerprintGuardSettings {
             'profile.browser': Object.keys(this.BROWSER_VERSIONS),
             'profile.spoofDevicePixelRatio': this.SPOOFING_DATA.devicePixelRatios.map(String),
             'profile.spoofScreenResolution': this.SPOOFING_DATA.screenResolutions.map(res => `${res.width}x${res.height}`),
+            'profile.spoofDeviceType': ['random', 'desktop', 'mobile', 'tablet'],
             'profile.language': this.SPOOFING_DATA.platforms['Windows NT 10.0; Win64; x64'].languages, // Exemple, peut être amélioré
             'profile.hardwareConcurrency': Array.from(new Set(Object.values(this.SPOOFING_DATA.platforms).flatMap(p => p.hardwareConcurrency))).sort((a, b) => a - b).map(String),
             'profile.deviceMemory': Array.from(new Set(Object.values(this.SPOOFING_DATA.platforms).flatMap(p => p.deviceMemory))).sort((a, b) => a - b).map(String),
             'profile.timezone': this.SPOOFING_DATA.timezones,
+        };
+
+        this.fieldDescriptions = {
+            'profile.minVersion': 'Version minimale du navigateur pour le User-Agent (ex: 110). 0 pour aléatoire.',
+            'profile.maxVersion': 'Version maximale du navigateur pour le User-Agent (ex: 120). 0 pour aléatoire.',
         };
         this.elements = {
             themeToggle: document.getElementById('themeToggle'),
@@ -128,23 +134,51 @@ class FingerprintGuardSettings {
         const content = document.createElement('div');
         content.className = 'card-content form-grid';
 
-        for (const key in settingsGroup) {
-            // Exclure les clés dérivées du profil si le groupe est 'profile'
-            if (groupName === 'profile' && this.excludedProfileKeys.includes(key)) {
-                continue;
-            }
+        // Définir l'ordre et le regroupement des champs pour le profil
+        const profileFieldOrder = [
+            { title: 'Informations Générales', fields: ['platform', 'browser', 'language', 'timezone'] },
+            { title: 'Caractéristiques Matérielles', fields: ['hardwareConcurrency', 'deviceMemory'] },
+            { title: 'Résolution d\'Écran', fields: ['spoofScreenResolution', 'spoofDevicePixelRatio'] },
+            { title: 'Autres Paramètres', fields: ['contentEncoding', 'spoofDeviceType', 'minVersion', 'maxVersion'] }
+        ];
 
-            const fullKey = `${groupName}.${key}`;
-            const value = settingsGroup[key];
+        if (groupName === 'profile') {
+            profileFieldOrder.forEach(section => {
+                const sectionHeader = document.createElement('h4');
+                sectionHeader.textContent = section.title;
+                content.appendChild(sectionHeader);
 
-            if (this.selectOptions[fullKey]) {
-                this.createSelectField(content, key, value, groupName, this.selectOptions[fullKey]);
-            } else if (typeof value === 'boolean') {
-                this.createBooleanField(content, key, value, groupName);
-            } else {
-                this.createTextField(content, key, value, groupName);
+                section.fields.forEach(key => {
+                    if (this.excludedProfileKeys.includes(key)) {
+                        return; // Skip excluded keys
+                    }
+                    const fullKey = `${groupName}.${key}`;
+                    const value = settingsGroup[key];
+
+                    if (this.selectOptions[fullKey]) {
+                        this.createSelectField(content, key, value, groupName, this.selectOptions[fullKey]);
+                    } else if (typeof value === 'boolean') {
+                        this.createBooleanField(content, key, value, groupName);
+                    } else {
+                        this.createTextField(content, key, value, groupName);
+                    }
+                });
+            });
+        } else { // Logique existante pour les autres groupes
+            for (const key in settingsGroup) {
+                const fullKey = `${groupName}.${key}`;
+                const value = settingsGroup[key];
+
+                if (this.selectOptions[fullKey]) {
+                    this.createSelectField(content, key, value, groupName, this.selectOptions[fullKey]);
+                } else if (typeof value === 'boolean') {
+                    this.createBooleanField(content, key, value, groupName);
+                } else {
+                    this.createTextField(content, key, value, groupName);
+                }
             }
         }
+
         card.appendChild(content);
         container.appendChild(card);
     }
@@ -166,9 +200,11 @@ class FingerprintGuardSettings {
     createTextField(container, key, value, group) {
         const formGroup = document.createElement('div');
         formGroup.className = 'form-group';
+        const description = this.fieldDescriptions[`${group}.${key}`] || '';
         formGroup.innerHTML = `
             <label for="${group}-${key}">${this.formatLabel(key)}</label>
             <input type="text" id="${group}-${key}" class="form-input" value="${value}">
+            ${description ? `<p class="form-group-description">${description}</p>` : ''}
         `;
         container.appendChild(formGroup);
     }
