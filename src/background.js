@@ -20,15 +20,18 @@ class FingerprintGuard {
       'reloadAllTabs': this.handleReloadAllTabs.bind(this),
     };
 
-    this.initialize();
+    // L'initialisation est maintenant gérée par l'écouteur de messages
+    // this.initialize();
   }
 
   async initialize() {
+    if (this.isInitialized) return; // Empêcher la double initialisation
     try {
       console.log('🚀 Initializing FingerprintGuard v3.0.0...');
       await this.settingsManager.initialize();
       await this.profileManager.initialize();
-      this.setupEventListeners();
+      // Les écouteurs d'événements spécifiques au Service Worker sont configurés ici
+      this.setupServiceWorkerEventListeners();
       this.isInitialized = true;
       console.log('✅ FingerprintGuard initialized successfully');
     } catch (error) {
@@ -36,12 +39,8 @@ class FingerprintGuard {
     }
   }
 
-  setupEventListeners() {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleMessage(message, sender, sendResponse);
-      return true; // Required for async sendResponse
-    });
-
+  setupServiceWorkerEventListeners() {
+    // Ces écouteurs sont liés au cycle de vie du Service Worker
     chrome.webNavigation.onCommitted.addListener(details => {
       if (details.frameId === 0) {
         this.spoofingService.applyProtectionsForTab(details.tabId, details.url);
@@ -61,9 +60,8 @@ class FingerprintGuard {
   }
 
   async handleMessage(message, sender, sendResponse) {
-    if (!this.isInitialized) {
-        await this.initialize();
-    }
+    // Assurez-vous que l'instance est initialisée avant de traiter le message
+    await this.initialize();
 
     const handler = this.messageHandlers[message.type];
     if (handler) {
@@ -102,6 +100,13 @@ class FingerprintGuard {
   }
 }
 
-// Initialize the extension
+// Initialiser l'extension et configurer l'écouteur de messages au niveau supérieur
 const guard = new FingerprintGuard();
-self.fingerprintGuard = guard; // For debugging purposes
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  guard.handleMessage(message, sender, sendResponse);
+  return true; // Nécessaire pour sendResponse asynchrone
+});
+
+// Pour le débogage
+self.fingerprintGuard = guard;
